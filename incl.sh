@@ -47,7 +47,8 @@ function generate_start_scripts()
     "cwd": "$ROOT_DEPLOYMENT_DIR/$2",
     "env": {
        "NODE_ENV": "$NODE_ENV",
-    }
+    },
+    "time": true
   }]
 }
 EOT_JS
@@ -68,7 +69,8 @@ function generate_web_start_scripts()
     "cwd": "$ROOT_DEPLOYMENT_DIR/$2",
     "env": {
        "NODE_ENV": "$NODE_ENV"
-    }
+    },
+    "time": true
   }]
 }
 EOT_JS
