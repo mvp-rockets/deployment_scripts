@@ -1,0 +1,1 @@
+run_remote /api/releases/$GIT_COMMIT "initial_api_setup.sh $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT $NODE_ENV $AWS_SM_ACCESS_KEY_ID $AWS_SM_SECRET_ACCESS_KEY_ID $AWS_SM_REGION $AWS_SM_SECRET_ID"
