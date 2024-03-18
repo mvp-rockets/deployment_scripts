@@ -1,0 +1,1 @@
+ssh -i <pem-key>.pem -L 5431:<host-endpoint>:5432 ubuntu@<instance-id> -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id <instance-id> --profile <your-profile> --region <your-region>' -N

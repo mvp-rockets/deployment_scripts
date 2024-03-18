@@ -1,23 +1,8 @@
 #!/usr/bin/env bash
 set -e
 # Init
-. "$SCRIPT_DIR/incl.sh"
-#ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}"
-
-TYPE=$2 
-if [ $NODE_ENV == "qa" ] && [ "$TYPE" == "web" ];
-then
-    ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}" 
-elif ([ $NODE_ENV == "production" ] || [ $NODE_ENV == "uat" ] || [ $NODE_ENV == "automation" ]) && [ "$TYPE" == "web" ];
-then 
-    ssh $KEYARG $REMOTE_USER@$INSTANCE_ID -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' --region '$AWS_REGION'' "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}"
-else 
-    echo "please check once"
-    exit 1
-fi
-#ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}"
-UI_PROJECT_FOLDER_NAME=
-
+. "$SCRIPT_DIR/incl-self.sh"
+mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}
 UI_PROJECT_FOLDER_NAME=ui
 log "##### Starting Deployment web #####"
 cd $PROJECT_DIR/$UI_PROJECT_FOLDER_NAME
@@ -48,12 +33,6 @@ sync /.nvmrc /web/releases/$GIT_COMMIT
 
 log "syncing node_modules"
 sync /$UI_PROJECT_FOLDER_NAME/node_modules /web/releases/$GIT_COMMIT
-
-log "Syncing env"
-sync /$UI_PROJECT_FOLDER_NAME/env/.env.$NODE_ENV /web/releases/$GIT_COMMIT/.env
-
-log "syncing next config file"
-sync /$UI_PROJECT_FOLDER_NAME/next.config.js /web/releases/$GIT_COMMIT
 
 log "syncing public folder"
 sync /$UI_PROJECT_FOLDER_NAME/public /web/releases/$GIT_COMMIT

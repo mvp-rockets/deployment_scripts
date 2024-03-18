@@ -1,22 +1,9 @@
 #!/usr/bin/env bash
 set -e
 # Config
-. "$SCRIPT_DIR/incl.sh"
-TYPE=$2 
-if [ $NODE_ENV == "qa" ] && [ "$TYPE" == "api" ];
-then
-    ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT" 
-elif ([ $NODE_ENV == "production" ] || [ $NODE_ENV == "uat" ] || [ $NODE_ENV == "automation" ]) && [ "$TYPE" == "api" ];
-then 
-    ssh $KEYARG $REMOTE_USER@$INSTANCE_ID -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' --region '$AWS_REGION'' "mkdir -p $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT"
-else 
-    echo "please check once"
-    exit 1
-fi
-#ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT"
+. "$SCRIPT_DIR/incl-self.sh"
+mkdir -p $DEPLOYMENT_DIR/api/releases/$GIT_COMMIT
 # Start API deployment
-API_PROJECT_FOLDER_NAME=
-
 API_PROJECT_FOLDER_NAME=app
 log "##### Starting api deployment #####"
 log "Syncing api"
@@ -52,8 +39,8 @@ log "Syncing rollback script"
 sync "/scripts/misc/rollback.sh" "/api"
 
 log "Running initial api setup script"
-#run_remote /api/releases/$GIT_COMMIT "initial_api_setup.sh $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT $NODE_ENV $AWS_SM_REGION $AWS_SM_SECRET_ID $AWS_SM_ACCESS_KEY_ID $AWS_SM_SECRET_ACCESS_KEY_ID"
-<runningInitialApiSetup>
+run_remote /api/releases/$GIT_COMMIT "initial_api_setup.sh $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT $NODE_ENV $AWS_SM_ACCESS_KEY_ID $AWS_SM_SECRET_ACCESS_KEY_ID $AWS_SM_REGION $AWS_SM_SECRET_ID"
+
 log "Running start api"
 run_remote /api/releases/$GIT_COMMIT "start_api.sh $ROOT_DEPLOYMENT_DIR/api $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT $GIT_COMMIT"
 
