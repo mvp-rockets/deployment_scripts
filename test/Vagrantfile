@@ -1,0 +1,51 @@
+#vagrant validate
+#vagrant up
+#vagrant status
+#vagrant ssh-config
+#vagrant ssh
+#tree .vagrant
+#vagrant destroy
+#vagrant box list
+#vagrant reload
+#ip route show
+#psql -h 192.168.56.1  
+#10.0.2.2 
+#vagrant ssh-config
+# ssh -p 2222 -v vagrant@127.0.0.1 -i .vagrant/machines/default/virtualbox/private_key
+# ssh -p 2222 -i /opt/vagrant/embedded/gems/gems/vagrant-1.5.1/keys/vagrant.pub vagrant@localhost
+
+Vagrant.configure("2") do |config|
+
+  VAGRANT_COMMAND = ARGV[0]
+  if VAGRANT_COMMAND == "ssh"
+    #config.ssh.username = 'ubuntu'
+  end
+
+  config.vm.box = "ubuntu/jammy64"
+
+  #config.vm.network "private_network", ip: "192.168.56.10"
+  # bind vm port to my host machine
+  #config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "1024"
+  end
+
+  config.vm.provision "file", source: "./golden-key.pub", destination: "/tmp/golden-key.pub"
+  config.vm.provision "shell", path: "install.sh"
+  config.vm.synced_folder "./aws-config", "/home/ubuntu/.aws"
+  #config.ssh.username = "ubuntu"
+  #config.ssh.forward_agent = true
+  #config.ssh.private_key_path = "~/.ssh/id_rsa"
+
+  config.vm.define "api" do |api|
+    api.vm.network "private_network", ip: "192.168.56.20"
+    api.vm.network "forwarded_port", guest: 80, host: 8080
+  end
+
+  config.vm.define "web" do |web|
+    web.vm.network "private_network", ip: "192.168.56.30"
+    web.vm.network "forwarded_port", guest: 80, host: 8081
+  end
+
+end

@@ -1,67 +1,98 @@
 #!/usr/bin/env bash
 set -e
+# 1. generate scripts & update scripts for remote
+# 2. Make sure the remote directory structure is present
+# 3. sync main code
+# 4. sync the generated files
+# 5. run remote init
+# 6. run remote start
+# 7. update remote history log
+# 8. clean up older deployments
+
 # Config
-. "$SCRIPT_DIR/incl.sh"
-TYPE=$2 
-if [ $NODE_ENV == "qa" ] && [ "$TYPE" == "api" ];
-then
-    ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT" 
-elif ([ $NODE_ENV == "production" ] || [ $NODE_ENV == "uat" ] || [ $NODE_ENV == "automation" ]) && [ "$TYPE" == "api" ];
-then 
-    ssh $KEYARG $REMOTE_USER@$INSTANCE_ID -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' --region '$AWS_REGION'' "mkdir -p $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT"
-else 
-    echo "please check once"
-    exit 1
+source "$SCRIPT_DIR/incl.sh"
+deployment_path="/$DEPLOY_SERVICE/releases/$GIT_COMMIT"
+
+log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE $DEPLOY_SERVICE_TYPE"
+
+# 1. generate scripts & update scripts for remote
+log "Generating $DEPLOY_SERVICE deploy config"
+generate_pm2_start_json $DEPLOY_SERVICE
+cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
+
+## Start of loop
+if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
+    arg='instance'
+    if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
+        arg="ip"
+    fi
+    primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DIR/services.json)
+
+    servers=( $(node "$PROJECT_DIR/$primary_prj/get-instances-by-target-group.js" $arg ) )
+else
+    servers=( $SERVER_NAME )
 fi
-#ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT"
-# Start API deployment
-API_PROJECT_FOLDER_NAME=
 
-API_PROJECT_FOLDER_NAME=app
-log "##### Starting api deployment #####"
-log "Syncing api"
-sync /$API_PROJECT_FOLDER_NAME/ /api/releases/$GIT_COMMIT \
---exclude node_modules --exclude test --exclude logs --exclude deployment-scripts \
---exclude postman \
---exclude codeAnalysis \
---exclude .nyc_output \
---exclude elasticmq
+for host in "${servers[@]}"
+do
+    if [ $REMOTE_TYPE == "ec2_instance_connect" ]; then
+        export INSTANCE_ID=$host
+        host_type="private"
+    else
+        export SERVER_NAME=$host
+        host_type="public"
+    fi
 
-log "syncing .nvmrc file"
-sync /.nvmrc /api/releases/$GIT_COMMIT
+    log "Deploying $DEPLOY_SERVICE_TYPE:$DEPLOY_SERVICE on $host ($host_type)"
 
-log "Syncing intial api setup script"
-sync "/scripts/misc/initial_api_setup.sh" "/api/releases/$GIT_COMMIT"
+    # 2. Make sure the remote directory structure is present
+    log "Making sure following dir is present: $DEPLOYMENT_DIR "
+    sync_remote_folder_structure "$DEPLOYMENT_DIR"
 
-log "Generating api deploy config"
-generate_start_scripts API api/current index
+    # 3. sync main code
+    log "##### Starting $DEPLOY_SERVICE deployment #####"
+    log "Syncing $DEPLOY_SERVICE"
+    sync "/$DEPLOY_SERVICE/" "$deployment_path" \
+    --exclude node_modules --exclude test --exclude logs \
+    --exclude deployment-scripts --exclude postman --exclude .vscode \
+    --exclude codeAnalysis --exclude .nyc_output \
+    --exclude elasticmq --exclude volume
+    # --exclude-from=ignore-list
 
-log "Syncing deploy config"
-sync /deploy.config.json "/api/releases/$GIT_COMMIT"
+    # 4. sync the generated files
+    sync "/scripts/remote/current/*" "$deployment_path/"
+    sync "/scripts/remote/current/.env.deploy" "$deployment_path/"
 
-log "Syncing start api"
-sync "/scripts/run_scripts/start_api.sh" "/api/releases/$GIT_COMMIT"
+    # sync files to the root_deployment_dir
+    sync "/scripts/remote/common/*" "/$DEPLOY_SERVICE/"
 
-log "Syncing log_to_deployment_history"
-sync "/scripts/misc/log_to_deployment_history.sh" "/api"
+    # 5. run remote init
+    log "init $DEPLOY_SERVICE"
+    run_remote "$deployment_path" "init_api.sh"
+    # 6. run remote start
+    log "start $DEPLOY_SERVICE"
+    run_remote "$deployment_path" "start_service.sh"
 
-log "Syncing clean up old deployment script"
-sync "/scripts/misc/clean_up_old_deployment.sh" "/api"
+    # 7. update remote history log
+    log "Logging current build to deployment history"
+    run_remote "/$DEPLOY_SERVICE" "log_to_deployment_history.sh $GIT_COMMIT"
+    # 8. clean up older deployments
+    log "Cleaning up old deployments"
+    run_remote "/$DEPLOY_SERVICE" "clean_up_old_deployment.sh"
 
-log "Syncing rollback script"
-sync "/scripts/misc/rollback.sh" "/api"
+done
+## End of loop
 
-log "Running initial api setup script"
-#run_remote /api/releases/$GIT_COMMIT "initial_api_setup.sh $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT $NODE_ENV $AWS_SM_REGION $AWS_SM_SECRET_ID $AWS_SM_ACCESS_KEY_ID $AWS_SM_SECRET_ACCESS_KEY_ID"
-<runningInitialApiSetup>
-log "Running start api"
-run_remote /api/releases/$GIT_COMMIT "start_api.sh $ROOT_DEPLOYMENT_DIR/api $ROOT_DEPLOYMENT_DIR/api/releases/$GIT_COMMIT $GIT_COMMIT"
+log "##### Deployment Completed for $APP_ENV - $DEPLOY_SERVICE #####"
+# 9. Update deployment logs
+# TODO: Push Deployment Success event
 
-log "Logging current build no deployment history"
-run_remote /api "log_to_deployment_history.sh $ROOT_DEPLOYMENT_DIR/api $GIT_COMMIT"
-
-log "Running clean up old deployments"
-run_remote /api "clean_up_old_deployment.sh"
-
-log "##### Deployment Completed for $NODE_ENV #####"
-
+# 10. Cleanup
+rm $SCRIPT_DIR/remote/current/deploy.config.json
+rm "$SCRIPT_DIR/remote/current/.env.deploy"
+# git checkout $SCRIPT_DIR/remote/current
+check_remote_connection

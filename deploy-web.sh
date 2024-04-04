@@ -1,28 +1,32 @@
 #!/usr/bin/env bash
 set -e
+# 1. Prepare for build
+# 2. Build storybook
+# 3. Build next
+# 4. generate scripts & update scripts for remote
+# 5. Make sure the remote directory structure is present
+# 6. sync .next and related stuff
+# 7. sync the generated files
+# 8. run remote start
+# 9. update remote history log
+# 10. clean up older deployments
+ 
 # Init
-. "$SCRIPT_DIR/incl.sh"
-#ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}"
+source "$SCRIPT_DIR/incl.sh"
+deployment_path="/$DEPLOY_SERVICE/releases/$GIT_COMMIT"
 
-TYPE=$2 
-if [ $NODE_ENV == "qa" ] && [ "$TYPE" == "web" ];
-then
-    ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}" 
-elif ([ $NODE_ENV == "production" ] || [ $NODE_ENV == "uat" ] || [ $NODE_ENV == "automation" ]) && [ "$TYPE" == "web" ];
-then 
-    ssh $KEYARG $REMOTE_USER@$INSTANCE_ID -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' --region '$AWS_REGION'' "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}"
-else 
-    echo "please check once"
-    exit 1
-fi
-#ssh $KEYARG $REMOTE_USER@$SERVER_NAME "mkdir -p $ROOT_DEPLOYMENT_DIR/{/web/releases/$GIT_COMMIT,/web/cache/.next}"
-UI_PROJECT_FOLDER_NAME=
+log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE"
 
-UI_PROJECT_FOLDER_NAME=ui
-log "##### Starting Deployment web #####"
-cd $PROJECT_DIR/$UI_PROJECT_FOLDER_NAME
+# TODO: Check if the service is to be deployed locally or remotely
+# echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]'
+
+# 1. Prepare for build
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+
+cd "$PROJECT_DIR/$DEPLOY_SERVICE"
+
+export NODE_ENV=production
 nvm use
 rm -rf .next
 rm -rf node_modules/ --force
@@ -31,67 +35,92 @@ rm -rf ./public/storybook/ --force
 git checkout package-lock.json
 npm ci --include=dev
 
-if [[ "$NODE_ENV" == "qa" ]]; then
+# 2. Build storybook
+if [ $BUILD_STORYBOOK == true ];
+then
     log "Building storybook"
     npm run build:storybook
     cp -r ./storybook-static ./public/storybook
 fi
 
-log "Building $UI_PROJECT_FOLDER_NAME"
-npm run build:$NODE_ENV
+# 3. Build next
+log "Building $DEPLOY_SERVICE"
+npm run build:$APP_ENV
 
-log "Syncing web"
-sync /$UI_PROJECT_FOLDER_NAME/.next/ /web/releases/$GIT_COMMIT/.next
+# 4. generate scripts & update scripts for remote
+log "Generating $DEPLOY_SERVICE deploy config"
+generate_pm2_start_json $DEPLOY_SERVICE
+cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
 
-log "syncing .nvmrc file"
-sync /.nvmrc /web/releases/$GIT_COMMIT
+## Start of loop
+if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
+    arg='instance'
+    if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
+        arg="ip"
+    fi
+    primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DIR/services.json)
 
-log "syncing node_modules"
-sync /$UI_PROJECT_FOLDER_NAME/node_modules /web/releases/$GIT_COMMIT
+    servers=( $(node "$PROJECT_DIR/$primary_prj/get-instances-by-target-group.js" $arg ) )
+else
+    servers=( $SERVER_NAME )
+fi
 
-log "Syncing env"
-sync /$UI_PROJECT_FOLDER_NAME/env/.env.$NODE_ENV /web/releases/$GIT_COMMIT/.env
+for host in "${servers[@]}"
+do
+    if [ $REMOTE_TYPE == "ec2_instance_connect" ]; then
+        export INSTANCE_ID=$host
+        host_type="private"
+    else
+        export SERVER_NAME=$host
+        host_type="public"
+    fi
 
-log "syncing next config file"
-sync /$UI_PROJECT_FOLDER_NAME/next.config.js /web/releases/$GIT_COMMIT
+    log "Deploying $DEPLOY_SERVICE_TYPE:$DEPLOY_SERVICE on $host ($host_type)"
 
-log "syncing public folder"
-sync /$UI_PROJECT_FOLDER_NAME/public /web/releases/$GIT_COMMIT
+    # 5. Make sure the remote directory structure is present
+    log "Making sure following dir is present: $DEPLOYMENT_DIR "
+    sync_remote_folder_structure "$DEPLOYMENT_DIR"
 
-log "syncing package json file"
-sync /$UI_PROJECT_FOLDER_NAME/package.json /web/releases/$GIT_COMMIT
+    # 6. sync .next and related stuff
+    log "Syncing $DEPLOY_SERVICE"
+    sync "/$DEPLOY_SERVICE/.next" "$deployment_path"
+    sync "/$DEPLOY_SERVICE/.nvmrc" "$deployment_path"
+    sync "/$DEPLOY_SERVICE/node_modules" "$deployment_path"
+    sync "/$DEPLOY_SERVICE/env/.env.$APP_ENV" "$deployment_path/.env"
+    sync "/$DEPLOY_SERVICE/next.config.js" "$deployment_path"
+    sync "/$DEPLOY_SERVICE/public" "$deployment_path"
+    sync "/$DEPLOY_SERVICE/package*.json" "$deployment_path"
 
-log "Generating web deploy config"
-generate_web_start_scripts WEB web/current
+    # 7. sync the generated files
+    sync "/scripts/remote/current/*" "$deployment_path/"
+    sync "/scripts/remote/current/.env.deploy" "$deployment_path/"
+    # sync files to the root_deployment_dir
+    sync "/scripts/remote/common/*" "/$DEPLOY_SERVICE/"
 
-log "Syncing deploy config"
-sync /deploy.config.json "/web/releases/$GIT_COMMIT"
+    # 8. run remote start
+    log "start $DEPLOY_SERVICE"
+    run_remote "$deployment_path" "start_service.sh"
 
-log "Syncing intial web setup script"
-sync "/scripts/misc/initial_web_setup.sh" "/web/releases/$GIT_COMMIT"
+    # 9. update remote history log
+    log "Logging current build to deployment history"
+    run_remote "/$DEPLOY_SERVICE" "log_to_deployment_history.sh $GIT_COMMIT"
 
-log "Syncing start web"
-sync "/scripts/run_scripts/start_web.sh" "/web/releases/$GIT_COMMIT"
+    # 10. clean up older deployments
+    log "Cleaning up old deployments"
+    run_remote "/$DEPLOY_SERVICE" "clean_up_old_deployment.sh"
 
-log "Syncing log_to_deployment_history"
-sync "/scripts/misc/log_to_deployment_history.sh" "/web"
+done
+## End of loop
 
-log "Syncing clean up old deployment script"
-sync "/scripts/misc/clean_up_old_deployment.sh" "/web"
+log "##### Deployment Completed for $APP_ENV - $DEPLOY_SERVICE #####"
+# 11. Update deployment logs
+# TODO: Push Deployment Success event
 
-log "Syncing rollback script"
-sync "/scripts/misc/rollback.sh" "/web"
-
-log "Running initial web setup script"
-run_remote /web/releases/$GIT_COMMIT "initial_web_setup.sh $ROOT_DEPLOYMENT_DIR/web/releases/$GIT_COMMIT"
-
-log "Running start web"
-run_remote /web/releases/$GIT_COMMIT "start_web.sh $ROOT_DEPLOYMENT_DIR/web $ROOT_DEPLOYMENT_DIR/web/releases/$GIT_COMMIT $NODE_ENV"
-
-log "Logging current build no deployment history"
-run_remote /web "log_to_deployment_history.sh $ROOT_DEPLOYMENT_DIR/web $GIT_COMMIT"
-
-log "Running clean up old deployments"
-run_remote /web "clean_up_old_deployment.sh"
-
-log "##### Deployment Completed for $NODE_ENV #####"
+# 12. Cleanup
+rm $SCRIPT_DIR/remote/current/deploy.config.json
+rm "$SCRIPT_DIR/remote/current/.env.deploy"
+#git checkout $SCRIPT_DIR/remote/current

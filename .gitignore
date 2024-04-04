@@ -1,3 +1,5 @@
 
 *.swp
 .vagrant
+build
+temp
