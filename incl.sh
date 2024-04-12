@@ -32,8 +32,6 @@ function run_remote()
 
 function exec_remote()
 {
-    # FIXME: SELF: "$1"
-
     if [ $REMOTE_TYPE == "ssh" ];
     then
       ssh_args="$KEYARG -t -o ControlMaster=auto -o ControlPath=~/.ssh/ssh-master-%C -o ControlPersist=60"
@@ -49,6 +47,10 @@ function exec_remote()
     elif [ $REMOTE_TYPE == "teleport" ];
     then
       tsh ssh -t $REMOTE_USER@$SERVER_NAME "$1"
+
+    elif [ $REMOTE_TYPE == "local" ];
+    then
+      eval " $1"
 
     else
         error "Unsupported REMOTE_TYPE = $REMOTE_TYPE"
@@ -148,10 +150,9 @@ function sync()
     then
       rsync -Pazq --delete -e "tsh ssh" $PROJECT_DIR$1 $REMOTE_USER@$SERVER_NAME:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
 
-    elif [ $REMOTE_TYPE == "self" ];
+    elif [ $REMOTE_TYPE == "local" ];
     then
-      rsync -Pazq --delete $PROJECT_DIR$1 $DEPLOYMENT_DIR$2 ${rest_args[@]}
-
+      rsync -Pazq --delete $PROJECT_DIR$1 $ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
     else
       error "Unsupported REMOTE_TYPE = $REMOTE_TYPE"
       exit 1

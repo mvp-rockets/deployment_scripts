@@ -9,10 +9,11 @@ usage()
 {
     local envs=($(find ./env/ -type f | sed 's|.*\.||' | sort -u))
     local services=($(jq -c '.services[].name' $PROJECT_DIR/services.json))
-    echo "Usage: $(basename $0) environment service"
+    echo "Usage: $(basename $0) environment service --self(optional)"
     echo ""
     echo -e "Available environments are:\e[1;32m ${envs[@]}\e[0m"
     echo -e "And available services are:\e[1;32m ${services[@]}\e[0m. Default is \e[1;32m'all'\e[0m when no second arg is passed"
+    echo -e "If --self flag is passed, then it will install locally. In that case arg 1 & 2 become mandatory"
     exit 1
 }
 
@@ -43,6 +44,12 @@ else
     DEPLOY_SERVICES=($(jq -c -r '.services[].name' $PROJECT_DIR/services.json))    
 fi
 
+if [[ $* == *--self* ]]; then
+    self_deployment=true
+else
+    self_deployment=false
+fi
+
 log "project: $(basename $PROJECT_DIR) env: $APP_ENV commit: $GIT_COMMIT services: ${DEPLOY_SERVICES[@]}"
 
 # Ensure that node_modules are present as we need it for get-instances-by-target-group script
@@ -63,10 +70,15 @@ do
 
     target_group="TARGET_GROUP_"$(echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]')
     if [[ -n ${!target_group} ]]; then
-        # TODO: If local / self deployment then ensure we are disabling certain conditions
         export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
-        #export REMOTE_TYPE=self
     fi
-    log "Deploying $service of type $DEPLOY_SERVICE_TYPE"
+    if [[ $self_deployment == true ]];then
+        export REMOTE_TYPE='local'
+        unset AWS_EC2_TARGET_GROUP_ARN
+        export SERVER_NAME='localhost'
+    fi
+    log "Deploying $service of type $DEPLOY_SERVICE_TYPE using mode $REMOTE_TYPE"
     $SCRIPT_DIR/deploy-$DEPLOY_SERVICE_TYPE.sh
 done
+
+# end_remote_connection

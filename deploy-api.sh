@@ -95,4 +95,3 @@ log "##### Deployment Completed for $APP_ENV - $DEPLOY_SERVICE #####"
 rm $SCRIPT_DIR/remote/current/deploy.config.json
 rm "$SCRIPT_DIR/remote/current/.env.deploy"
 # git checkout $SCRIPT_DIR/remote/current
-check_remote_connection
