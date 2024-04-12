@@ -10,12 +10,12 @@ usage()
 {
     local services=($(jq -c '.services[].name' $PROJECT_DIR/services.json))
     echo "Usage: $(basename $0) service"
-    echo "Where available services are: ${services[@]}. Default 'all' when no second arg is passed"
+    echo "Where available services are: ${services[@]}. Default 'all' when no first arg is passed"
     exit 1
 }
 
 # Config
-DEPLOY_SERVICES=("${2:-all}")
+DEPLOY_SERVICES=("${1:-all}")
 if [ ${DEPLOY_SERVICES[0]} != "all" ]
 then
     DEPLOY_SERVICE_TYPE=($(jq -c -r --arg n "${DEPLOY_SERVICES[0]}" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json))
