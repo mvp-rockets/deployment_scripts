@@ -59,3 +59,9 @@ then
   echo "Setting secret ARN: $secret_arn"
   ../lib/dotenv --file "$secrets_file" set AWS_SM_SECRET_ID="$secret_arn"
 fi
+
+if [ ! -f ../config/golden-key ]
+then
+  mkdir -p ../config
+  cp golden-key ../config
+fi
