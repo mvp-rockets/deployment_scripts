@@ -6,8 +6,8 @@ run `vagrant up` to get the instance up
 
 Within the guest machine you can reach out to the host with either of the following IP address
 - 192.168.56.1
-- 10.0.2.2
+- 10.0.2.3
 
 For e.g.
-`psql -h 10.0.2.2 -U root`
-`redis-cli -h 10.0.2.2`
+`psql -h 10.0.2.3 -U root`
+`redis-cli -h 10.0.2.3`

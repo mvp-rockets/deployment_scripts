@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -e
-version=1.0
+VERSION=1.0
 
 if ! command -v jq &> /dev/null
 then
   #sudo apt-get -y update && sudo apt-get -y upgrade
   sudo apt-get -y update 
-  sudo apt-get -y install build-essential python3 jq git tree redis-tools postgresql-client
+  sudo apt-get -y install build-essential python3 jq git tree redis-tools postgresql-client moreutils
 fi
 
 if [[ $(type -t nvm) == function ]] ;

@@ -26,7 +26,6 @@ function run()
 # uses ssh to execute the command remotely
 function run_remote()
 {
-    # FIXME: SELF: cd $ROOT_DEPLOYMENT_DIR$1; ./$2
     exec_remote "cd $ROOT_DEPLOYMENT_DIR$1; ./$2"
 }
 
