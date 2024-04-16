@@ -111,6 +111,8 @@ create_environment() {
   "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/scripts/env/.env.$APP_ENV" set APP_ENV="$APP_ENV"
   "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/scripts/env/.env.$APP_ENV" set NODE_ENV="$APP_ENV"
   "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/scripts/env/.env.$APP_ENV" set PROJECT_NAME="$PROJECT_NAME"
+  "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/scripts/env/.env.$APP_ENV" set AWS_PROFILE="$PROJECT_NAME-$APP_ENV"
+
   local services=($(jq -r -c '.services[].name' $PROJECT_DIR/services.json))
   for service in "${services[@]}"
   do
