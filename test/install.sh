@@ -86,7 +86,7 @@ if ! command -v node &> /dev/null
 then
   # Installs the current lts. Replace this with the expected node version
   #nvm install --lts
-  nvm install v20.11.1
+  nvm install v20.12.2
   npm install -g node-gyp
 
   npm install pm2@latest -g
