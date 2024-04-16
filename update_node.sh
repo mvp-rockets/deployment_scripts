@@ -14,8 +14,8 @@ if [[ "$CURRENT" == "v$NODE_UPGRADE" ]];then
   exit 1 
 fi
 
-#grep -r "$NODE_CURRENT" --exclude-dir={node_modules,git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR
-count=$(grep -r "$NODE_CURRENT" --exclude-dir={node_modules,git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR | wc -l)
+#grep -r "$NODE_CURRENT" --exclude-dir={node_modules,.git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR
+count=$(grep -r "$NODE_CURRENT" --exclude-dir={node_modules,.git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR | wc -l)
 echo "Found $NODE_CURRENT references in $count places"
 
 echo "v$NODE_UPGRADE" > "$PROJECT_DIR/.nvmrc"
@@ -34,9 +34,9 @@ do
   fi
 done
 
-count=$(grep -r "$NODE_UPGRADE" --exclude-dir={node_modules,git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR | wc -l)
+count=$(grep -r "$NODE_UPGRADE" --exclude-dir={node_modules,.git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR | wc -l)
 echo "Found $NODE_UPGRADE references in $count places"
-#grep -r "$NODE_UPGRADE" --exclude-dir={node_modules,git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR
+#grep -r "$NODE_UPGRADE" --exclude-dir={node_modules,.git,log} --exclude="*.svg" --exclude="$(basename $0)" $PROJECT_DIR
 
 nvm install --reinstall-packages-from="v$NODE_CURRENT" --latest-npm "v$NODE_UPGRADE" 
 nvm alias default "v$NODE_UPGRADE" 
