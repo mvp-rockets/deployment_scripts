@@ -57,7 +57,11 @@ primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DI
 if [[ ! -d "$PROJECT_DIR/$primary_prj/node_modules" ]]; then
     pushd .
     cd "$PROJECT_DIR/$primary_prj"
-    nvm use
+
+    if command -v nvm &> /dev/null
+    then
+      nvm use
+    fi
     npm install --force
     popd
 fi
@@ -66,19 +70,25 @@ for service in "${DEPLOY_SERVICES[@]}"
 do
     export DEPLOY_SERVICE_TYPE=$(jq -c -r --arg n "$service" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json)
     export DEPLOY_SERVICE="$service"
-    export DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR/$service/releases/$GIT_COMMIT"
 
-    target_group="TARGET_GROUP_"$(echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]')
-    if [[ -n ${!target_group} ]]; then
-        export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
+    if [[ $DEPLOY_MODE == "docker" ]];
+    then
+      $SCRIPT_DIR/deploy-docker.sh
+    else
+      export DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR/$service/releases/$GIT_COMMIT"
+
+      target_group="TARGET_GROUP_"$(echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]')
+      if [[ -n ${!target_group} ]]; then
+          export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
+      fi
+      if [[ $self_deployment == true ]];then
+          export REMOTE_TYPE='local'
+          unset AWS_EC2_TARGET_GROUP_ARN
+          export SERVER_NAME='localhost'
+      fi
+      log "Deploying $service of type $DEPLOY_SERVICE_TYPE using mode $REMOTE_TYPE"
+      $SCRIPT_DIR/deploy-$DEPLOY_SERVICE_TYPE.sh
     fi
-    if [[ $self_deployment == true ]];then
-        export REMOTE_TYPE='local'
-        unset AWS_EC2_TARGET_GROUP_ARN
-        export SERVER_NAME='localhost'
-    fi
-    log "Deploying $service of type $DEPLOY_SERVICE_TYPE using mode $REMOTE_TYPE"
-    $SCRIPT_DIR/deploy-$DEPLOY_SERVICE_TYPE.sh
 done
 
 # end_remote_connection

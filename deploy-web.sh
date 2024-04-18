@@ -21,13 +21,16 @@ log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE"
 # echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]'
 
 # 1. Prepare for build
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-
 cd "$PROJECT_DIR/$DEPLOY_SERVICE"
 
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+if command -v nvm &> /dev/null
+then
+  nvm use
+fi
+
 export NODE_ENV=production
-nvm use
 rm -rf .next
 rm -rf node_modules/ --force
 rm -rf storybook-static/ --force
@@ -46,6 +49,7 @@ fi
 # 3. Build next
 log "Building $DEPLOY_SERVICE"
 npm run build:$APP_ENV
+npm prune --production
 
 # 4. generate scripts & update scripts for remote
 log "Generating $DEPLOY_SERVICE deploy config"
