@@ -42,6 +42,7 @@ function exec_remote()
         -o ProxyCommand='aws ec2-instance-connect open-tunnel \
         --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' \
         --region '$AWS_REGION'' "$1"
+    # aws ec2-instance-connect --region '$AWS_REGION' --instance-id '' --instance-os-user ubuntu --ssh-public-key file://<path>
 
     elif [ $REMOTE_TYPE == "teleport" ];
     then
@@ -167,7 +168,7 @@ function sync()
 ##      {"type": "api", "name": "core", "sub_services": ["cron", "socket", "sqs"]},
 ##      {"type": "api", "name": "auth", "sub_services": []},
 ##      {"type": "web", "name": "admin", "sub_services": []},
-##      {"type": "background", "name": "backend", "sub_services": ["cron", "socket", "sqs"]}
+##      {"type": "backend", "name": "backend", "sub_services": ["cron", "socket", "sqs"]}
 ##    ]
 ##  }
 function generate_pm2_start_json()
@@ -175,27 +176,32 @@ function generate_pm2_start_json()
   local service=$1
   TEMP_FILE=$(mktemp tmp.XXXXXXXXXX)
   target_file="${2:-deploy.config.json}"
-
   info=$(jq -c --arg n "$service" '.services[] | select(.name == $n)' $PROJECT_DIR/services.json)
 
   # Create the base 
   apps='{ "apps": [] }'
   service_type=$(echo "$info" | jq -r '.type')
   app=
-  readarray -t deploy_services < <(echo $info | jq -c -r '.sub_services[]')
+  
+  #jq -c -r '.services[] | select(.name == "web") | .sub_services.includeEnvs | any( . == "qa" )' ../services.json
 
-  if [ "$service_type" != "background" ]
+  if [ "$service_type" != "backend" ]
   then
     app=$(build_pm2_json $service_type "$PROJECT_NAME-$APP_ENV-$service" $service)
     apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
   fi
 
-  for sub in "${deploy_services[@]}"
-  do
-    app=$(build_pm2_json $sub "$PROJECT_NAME-$APP_ENV-$sub" $service)
-    apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
-  done
+  #if [[ ! $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.excludeEnvs | if . != null then any(. == $env) else false end') ]]
+  #  && [[ $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.includeEnvs | if . != null then any(. == $env) else false end') ]]
+  #; then
+    readarray -t deploy_services < <(echo $info | jq -c -r '.sub_services.services[]')
 
+    for sub in "${deploy_services[@]}"
+    do
+      app=$(build_pm2_json $sub "$PROJECT_NAME-$APP_ENV-$sub" $service)
+      apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
+    done
+  #fi
   echo "$apps" > $TEMP_FILE
   mv $TEMP_FILE $SCRIPT_DIR/remote/current/$target_file
 }
@@ -231,6 +237,7 @@ EOT_JS
 case "$1" in
   web)
   json=$(echo "$json" | jq '.env.NODE_ENV = "production"')
+  json=$(echo "$json" | jq --arg p "$UI_PORT" '.env.PORT = $p')
   read -r -d '' js << EOM
 {
   "script" : "npm",
@@ -278,4 +285,18 @@ function is_healthy() {
     else
         return 1
     fi
+}
+
+function check_for_commands() {
+
+  # Check if AWS CLI and jq are installed
+  if ! command -v aws &> /dev/null; then
+      echo "AWS CLI not found. Please install AWS CLI."
+      exit 1
+  fi
+
+  if ! command -v jq &> /dev/null; then
+      echo "jq not found. Please install jq."
+      exit 1
+  fi
 }

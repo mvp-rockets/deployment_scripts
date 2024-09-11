@@ -17,7 +17,7 @@ log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE $DEPLOY_SERVI
 
 # 1. generate scripts & update scripts for remote
 log "Generating $DEPLOY_SERVICE deploy config"
-generate_pm2_start_json $DEPLOY_SERVICE
+generate_pm2_start_json $DEPLOY_SERVICE "$DEPLOY_SERVICE.deploy.json"
 cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
@@ -30,7 +30,7 @@ if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
     if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
         arg="ip"
     fi
-    primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DIR/services.json)
+    primary_prj=$(jq -c -r '.services[] | select(.primary == true) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
 
     servers=( $(node "$PROJECT_DIR/$primary_prj/get-instances-by-target-group.js" $arg ) )
 else
@@ -56,7 +56,8 @@ do
     # 3. sync main code
     log "##### Starting $DEPLOY_SERVICE deployment #####"
     log "Syncing $DEPLOY_SERVICE"
-    sync "/$DEPLOY_SERVICE/" "$deployment_path" \
+    local_dir=$(jq -c -r --arg se "$DEPLOY_SERVICE" '.services[] | select(.name == $se) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
+    sync "/$local_dir/" "$deployment_path" \
     --exclude node_modules --exclude test --exclude logs \
     --exclude deployment-scripts --exclude postman --exclude .vscode \
     --exclude codeAnalysis --exclude .nyc_output \

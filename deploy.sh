@@ -53,7 +53,7 @@ fi
 log "project: $(basename $PROJECT_DIR) env: $APP_ENV commit: $GIT_COMMIT services: ${DEPLOY_SERVICES[@]}"
 
 # Ensure that node_modules are present as we need it for get-instances-by-target-group script
-primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DIR/services.json)
+primary_prj=$(jq -c -r '.services[] | select(.primary == true) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
 if [[ ! -d "$PROJECT_DIR/$primary_prj/node_modules" ]]; then
     pushd .
     cd "$PROJECT_DIR/$primary_prj"

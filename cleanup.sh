@@ -35,7 +35,8 @@ do
     export DEPLOY_SERVICE_TYPE=($(jq -c -r --arg n "$service" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json))
     export DEPLOY_SERVICE="$service"
     log "Cleaning up service $DEPLOY_SERVICE_TYPE of type $service"
-    cd "$service"
+    local_dir=$(jq -c -r --arg se "$DEPLOY_SERVICE" '.services[] | select(.name == $se) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
+    cd "$local_dir"
    
     rm -rf node_modules/ --force
     git checkout package-lock.json    

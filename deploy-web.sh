@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
-# 1. Prepare for build
-# 2. Build storybook
-# 3. Build next
-# 4. generate scripts & update scripts for remote
+# 1. generate scripts & update scripts for remote
+# 2. Prepare for build
+# 3. Build storybook
+# 4. Build next
 # 5. Make sure the remote directory structure is present
 # 6. sync .next and related stuff
 # 7. sync the generated files
@@ -20,7 +20,20 @@ log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE"
 # TODO: Check if the service is to be deployed locally or remotely
 # echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]'
 
-# 1. Prepare for build
+export NODE_ENV=production
+
+# 1. generate scripts & update scripts for remote
+log "Generating $DEPLOY_SERVICE deploy config"
+generate_pm2_start_json $DEPLOY_SERVICE "$DEPLOY_SERVICE.deploy.json"
+cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
+
+exit
+
+# 2. Prepare for build
 cd "$PROJECT_DIR/$DEPLOY_SERVICE"
 
 export NVM_DIR="$HOME/.nvm"
@@ -30,7 +43,7 @@ then
   nvm use
 fi
 
-export NODE_ENV=production
+# Cleanup local files
 rm -rf .next
 rm -rf node_modules/ --force
 rm -rf storybook-static/ --force
@@ -38,27 +51,19 @@ rm -rf ./public/storybook/ --force
 git checkout package-lock.json
 npm ci --include=dev
 
-# 2. Build storybook
+# 3. Build storybook
 if [ $BUILD_STORYBOOK == true ];
 then
     log "Building storybook"
     npm run build:storybook
+    npm run deploy-storybook
     cp -r ./storybook-static ./public/storybook
 fi
 
-# 3. Build next
+# 4. Build next
 log "Building $DEPLOY_SERVICE"
 npm run build:$APP_ENV
 npm prune --production
-
-# 4. generate scripts & update scripts for remote
-log "Generating $DEPLOY_SERVICE deploy config"
-generate_pm2_start_json $DEPLOY_SERVICE
-cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
-$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
-$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
-$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
-$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
 
 ## Start of loop
 if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then

@@ -1,0 +1,69 @@
+{
+  "Documentation": "This json is used for managing the environments & services that are available in this project. The scripts/deploy.sh is dependent on this file",
+  "projectName": "test",
+  "services": [
+    {
+      "type": "api",
+      "name": "api",
+      "sub_services": {
+        "services": [
+          "cron",
+          "sqs"
+        ],
+        "excludeEnvs": [
+          "prod",
+          "uat"
+        ]
+      },
+      "primary": true
+    },
+    {
+      "type": "backend",
+      "name": "backend",
+      "includeEnvs": [
+        "prod",
+        "uat"
+      ],
+      "sub_services": {
+        "services": [
+          "cron",
+          "sqs"
+        ]
+      }
+    },
+    {
+      "type": "web",
+      "name": "ui",
+      "sub_services": { "services": [] }
+    },
+    {
+      "type": "web",
+      "name": "admin",
+      "sub_services": { "services": [] }
+    },
+    {
+      "type": "api",
+      "name": "auth",
+      "location": "dummy-auth",
+      "includeEnvs": [
+        "prod"
+      ],
+      "excludeEnvs": [
+        "qa"
+      ],
+      "sub_services": {
+        "services": ["socket", "backend"],
+        "excludeEnvs": ["prod"]
+      }
+    },
+    {
+      "type": "backend",
+      "name": "background",
+      "includeEnvs": ["prod"],
+      "sub_services": {
+        "services": ["socket", "backend"],
+        "includeEnvs": ["prod"]
+      }
+    }
+  ]
+}
