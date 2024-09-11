@@ -74,7 +74,7 @@ elif [[ -z $SERVER_NAME && -n $TARGET_GROUP_ARN ]]; then
     INSTANCE_ID=${INSTANCE_IDS[0]}
   fi
 
-  if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
+  if [ $REMOTE_TYPE != "ec2_instance_connect" && $REMOTE_TYPE != "aws_session_manager" ]; then
     # Get the public DNS of the selected instance
     #PUBLIC_DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID | jq -r '.Reservations[].Instances[].PublicDnsName')
     SERVER_NAME=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID | jq -r '.Reservations[].Instances[].PublicIpAddress')
@@ -100,6 +100,11 @@ then
     -o ProxyCommand='aws ec2-instance-connect open-tunnel \
     --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' \
     --region '$AWS_REGION''
+
+elif [ $REMOTE_TYPE == "aws_session_manager" ];
+then
+  
+  aws ssm --region $AWS_REGION start-session --target $INSTANCE_ID 
 
 elif [ $REMOTE_TYPE == "teleport" ];
 then

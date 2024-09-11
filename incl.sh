@@ -43,6 +43,9 @@ function exec_remote()
         --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' \
         --region '$AWS_REGION'' "$1"
     # aws ec2-instance-connect --region '$AWS_REGION' --instance-id '' --instance-os-user ubuntu --ssh-public-key file://<path>
+    elif [ $REMOTE_TYPE == "aws_session_manager" ]; # Needs testing
+    then
+      aws ssm --region $AWS_REGION start-session --target $INSTANCE_ID  "$1"
 
     elif [ $REMOTE_TYPE == "teleport" ];
     then
