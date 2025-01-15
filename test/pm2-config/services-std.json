@@ -1,10 +1,11 @@
 {
   "Documentation": "This json is used for managing the environments & services that are available in this project. The scripts/deploy.sh is dependent on this file",
-  "projectName": "test",
+  "projectName": "trumo",
   "services": [
     {
       "type": "api",
       "name": "api",
+      "location": "functions",
       "sub_services": {
         "services": [
           "cron",
@@ -20,9 +21,10 @@
     {
       "type": "backend",
       "name": "backend",
+      "location": "functions",
       "includeEnvs": [
         "prod",
-        "uat"
+        "perf"
       ],
       "sub_services": {
         "services": [
@@ -40,30 +42,6 @@
       "type": "web",
       "name": "admin",
       "sub_services": { "services": [] }
-    },
-    {
-      "type": "api",
-      "name": "auth",
-      "location": "dummy-auth",
-      "includeEnvs": [
-        "prod"
-      ],
-      "excludeEnvs": [
-        "qa"
-      ],
-      "sub_services": {
-        "services": ["socket", "backend"],
-        "excludeEnvs": ["prod"]
-      }
-    },
-    {
-      "type": "backend",
-      "name": "background",
-      "includeEnvs": ["prod"],
-      "sub_services": {
-        "services": ["socket", "backend"],
-        "includeEnvs": ["prod"]
-      }
     }
   ]
 }

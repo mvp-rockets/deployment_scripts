@@ -33,10 +33,5 @@ deploy either api or web
 ./deploy.sh qa api --> will deploy only api to qa
 ./deploy.sh qa web --> will deploy only web to qa
 
-
-
 ```
 
-## 5. Authors/maintainers/contributors
-
-- Yashjeet Luthra (yash@napses.com)

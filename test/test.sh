@@ -83,6 +83,11 @@ then
   ../lib/dotenv --file "$secrets_file" set AWS_SM_SECRET_ID="$secret_arn"
 fi
 
+if [ ! -f ./golden-key ]
+then
+  ssh-keygen -t ed25519 -C "devops@napses.com" -f ./golden-key -q -N "" 
+fi
+
 if [ ! -f ../config/golden-key ]
 then
   mkdir -p ../config

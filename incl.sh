@@ -163,8 +163,9 @@ function sync()
 }
 
 # $1: App name, e.g. api, admin, ui, ...
-# $2: Target file name, defaults to deploy.config.json
-# Env Variables: PROJECT_NAME, APP_ENV, PROJECT_DIR
+# $2: Target file name (optional), defaults to deploy.config.json
+# $3: services.json file(optional), defaults to $PROJECT_DIR/services.json. Used for testing purpose
+# Env Variables: PROJECT_NAME, APP_ENV, PROJECT_DIR, SCRIPT_DIR
 # Expects services.json file to be present in PROJECT_DIR. Format of the file
 ##  {
 ##    "services": [
@@ -174,37 +175,43 @@ function sync()
 ##      {"type": "backend", "name": "backend", "sub_services": ["cron", "socket", "sqs"]}
 ##    ]
 ##  }
+## For more details see: test/test-pm2-json.sh && test/pm2-config/services.json
 function generate_pm2_start_json()
 {
   local service=$1
   TEMP_FILE=$(mktemp tmp.XXXXXXXXXX)
   target_file="${2:-deploy.config.json}"
-  info=$(jq -c --arg n "$service" '.services[] | select(.name == $n)' $PROJECT_DIR/services.json)
+  services_file="${3:-services.json}"
+  info=$(jq -c --arg n "$service" '.services[] | select(.name == $n)' $PROJECT_DIR/$services_file)
 
   # Create the base 
   apps='{ "apps": [] }'
   service_type=$(echo "$info" | jq -r '.type')
   app=
   
-  #jq -c -r '.services[] | select(.name == "web") | .sub_services.includeEnvs | any( . == "qa" )' ../services.json
+  excluded=$(echo $info | jq -c -r --arg env "$APP_ENV" '.excludeEnvs | if . != null then any(. == $env) else false end')
+  included=$(echo $info | jq -c -r --arg env "$APP_ENV" '.includeEnvs | if . != null then any(. == $env) else true end')
+  if ! $excluded && $included ;
+   then
 
-  if [ "$service_type" != "backend" ]
-  then
-    app=$(build_pm2_json $service_type "$PROJECT_NAME-$APP_ENV-$service" $service)
-    apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
-  fi
-
-  #if [[ ! $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.excludeEnvs | if . != null then any(. == $env) else false end') ]]
-  #  && [[ $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.includeEnvs | if . != null then any(. == $env) else false end') ]]
-  #; then
-    readarray -t deploy_services < <(echo $info | jq -c -r '.sub_services.services[]')
-
-    for sub in "${deploy_services[@]}"
-    do
-      app=$(build_pm2_json $sub "$PROJECT_NAME-$APP_ENV-$sub" $service)
+    if [ "$service_type" != "backend" ]
+    then
+      app=$(build_pm2_json $service_type "$PROJECT_NAME-$APP_ENV-$service" $service)
       apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
-    done
-  #fi
+    fi
+
+    if ! $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.excludeEnvs | if . != null then any(. == $env) else false end') &&
+      $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.includeEnvs | if . != null then any(. == $env) else true end') ;
+     then
+      readarray -t deploy_services < <(echo $info | jq -c -r '.sub_services.services[]')
+
+      for sub in "${deploy_services[@]}"
+      do
+        app=$(build_pm2_json $sub "$PROJECT_NAME-$APP_ENV-$sub" $service)
+        apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
+      done
+    fi
+  fi
   echo "$apps" > $TEMP_FILE
   mv $TEMP_FILE $SCRIPT_DIR/remote/current/$target_file
 }
@@ -260,7 +267,7 @@ EOM
    ]}
 EOM
   ;;
-  cron|background|sqs|socket)
+  cron|backend|sqs|socket)
   read -r -d '' js << EOM
 {
   "exp_backoff_restart_delay": "500",
