@@ -244,16 +244,16 @@ case "$1" in
   read -r -d '' js << EOM
 {
   "script" : "npm",
-  "args" : "run start"
+  "args" : "run start:$APP_ENV"
 }
 EOM
   ;;
   api)
   read -r -d '' js << EOM
 {
-  "script": "./index.js",
-  "exec_mode" : "cluster",
-  "instances" : 2,
+  "script": "build/src/main.js",
+  "exec_mode" : "fork",
+  "instances" : 1,
   "combine_logs": true,
   "node_args": [
      "--max_old_space_size=1048"
@@ -265,7 +265,7 @@ EOM
 {
   "exp_backoff_restart_delay": "500",
   "max_memory_restart": "2G",
-  "script": "./$1-index.js",
+  "script": "build/src/$1.js",
   "node_args": [
      "--max_old_space_size=2048"
    ]}

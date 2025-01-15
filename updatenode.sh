@@ -50,4 +50,3 @@ nvm alias default "v$NODE_UPGRADE"
 #  generators/app/templates/init/.nvmrc:v20.11.1
 #  generators/app/templates/init/bitbucket-pipelines.yml:image: node:20.11.0
 #  generators/scripts/templates/test/install.sh:  nvm install v20.11.1
-

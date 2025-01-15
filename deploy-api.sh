@@ -17,7 +17,7 @@ log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE $DEPLOY_SERVI
 
 # 1. generate scripts & update scripts for remote
 log "Generating $DEPLOY_SERVICE deploy config"
-generate_pm2_start_json $DEPLOY_SERVICE "$DEPLOY_SERVICE.deploy.json"
+generate_pm2_start_json $DEPLOY_SERVICE "deploy.config.json"
 cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"

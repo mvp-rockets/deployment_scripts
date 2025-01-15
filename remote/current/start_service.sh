@@ -6,6 +6,9 @@ ROOT_DEPLOYMENT_DIR=$(builtin cd "../../"; pwd)
 
 cd $ROOT_DEPLOYMENT_DIR
 
+rm -f $ROOT_DEPLOYMENT_DIR/current
+
+
 echo "creating symbolic link"
 ln -sf $DEPLOYMENT_DIR $ROOT_DEPLOYMENT_DIR/current
 

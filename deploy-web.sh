@@ -24,14 +24,14 @@ export NODE_ENV=production
 
 # 1. generate scripts & update scripts for remote
 log "Generating $DEPLOY_SERVICE deploy config"
-generate_pm2_start_json $DEPLOY_SERVICE "$DEPLOY_SERVICE.deploy.json"
+generate_pm2_start_json $DEPLOY_SERVICE "deploy.config.json"
 cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
 
-exit
+# exit
 
 # 2. Prepare for build
 cd "$PROJECT_DIR/$DEPLOY_SERVICE"
@@ -100,7 +100,7 @@ do
     sync "/$DEPLOY_SERVICE/.nvmrc" "$deployment_path"
     sync "/$DEPLOY_SERVICE/node_modules" "$deployment_path"
     sync "/$DEPLOY_SERVICE/env/.env.$APP_ENV" "$deployment_path/.env"
-    sync "/$DEPLOY_SERVICE/next.config.js" "$deployment_path"
+    # sync "/$DEPLOY_SERVICE/next.config.js" "$deployment_path"
     sync "/$DEPLOY_SERVICE/public" "$deployment_path"
     sync "/$DEPLOY_SERVICE/package*.json" "$deployment_path"
 
