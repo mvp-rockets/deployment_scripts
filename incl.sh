@@ -246,8 +246,9 @@ EOT_JS
 
 case "$1" in
   web)
+  service_port="PORT_"$(echo "$3" | tr '[:lower:]' '[:upper:]')
   json=$(echo "$json" | jq '.env.NODE_ENV = "production"')
-  json=$(echo "$json" | jq --arg p "$UI_PORT" '.env.PORT = $p')
+  json=$(echo "$json" | jq --arg p "${!service_port}" '.env.PORT = $p')
   read -r -d '' js << EOM
 {
   "script" : "npm",

@@ -9,6 +9,8 @@ PROJECT_NAME=vagrant
 ROOT_DEPLOYMENT_DIR=~/apps/testing/vagrant
 PROJECT_DIR='./pm2-config'
 SCRIPT_DIR="."
+PORT_UI=3005
+PORT_ADMIN=3010
 
 #echo "$APP_ENV api should have services cron, sqs"
 #generate_pm2_start_json api "$APP_ENV-api.deploy.json"
