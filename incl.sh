@@ -163,6 +163,70 @@ function sync()
     fi
 }
 
+# $1: Project directory that needs to be checked for project type
+# Returns 1 if it fails else returns 0
+# Set's a global variable $PROJECT_TYPE and also echo's the following values
+# "typescript", "javascript", "go", "flutter" or "dart" depending upon the project type 
+# Usage: project_type=$(check_project_type "$project_dir") 
+# Use the PROJECT_TYPE variable in your script
+#    if [[ "$PROJECT_TYPE" != "unknown" && "$PROJECT_TYPE" != "invalid_directory" ]]; then
+#      echo "Project type detected: $PROJECT_TYPE"
+#    else
+#      echo "No valid project detected in the given directory."
+#    fi
+check_project_type() {
+    local dir="$1"
+
+    if [[ -z "$dir" ]]; then
+        echo "Usage: check_project_type <directory>"
+        return 1
+    fi
+
+    # Check if the argument is a directory
+    if [[ ! -d "$dir" ]]; then
+        echo "Error: Directory '$dir' does not exist."
+        return 1
+    fi
+
+    # Check for TypeScript project
+    if [[ -f "$dir/tsconfig.json" ]]; then
+        PROJECT_TYPE="typescript"
+        echo "typescript"
+        return 0
+    fi
+
+    # Check for JavaScript project (Node.js)
+    if [[ -f "$dir/package.json" ]]; then
+        PROJECT_TYPE="javascript"
+        echo "javascript"
+        return 0
+    fi
+
+    # Check for Go project
+    if [[ -f "$dir/go.mod" ]]; then
+        PROJECT_TYPE="go"
+        echo "go"
+        return 0
+    fi
+
+    # Check for Flutter or Dart project
+    if [[ -f "$dir/pubspec.yaml" ]]; then
+        if grep -q "flutter:" "$dir/pubspec.yaml"; then
+            PROJECT_TYPE="flutter"
+            echo "flutter"
+            return 0
+        else
+            PROJECT_TYPE="dart"
+            echo "dart"
+            return 0
+        fi
+    fi
+
+    PROJECT_TYPE="unknown" 
+    echo "unknown"
+    return 1
+}
+
 # $1: App name, e.g. api, admin, ui, ...
 # $2: Target file name (optional), defaults to deploy.config.json
 # $3: services.json file(optional), defaults to $PROJECT_DIR/services.json. Used for testing purpose
