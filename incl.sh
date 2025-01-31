@@ -143,19 +143,20 @@ function sync()
     then
       ssh_args="$KEYARG" #-tt -o ControlMaster=auto -o ControlPath=~/.ssh/ssh-master-%C -o ControlPersist=60"
 
-      rsync -Pazq --delete -e "ssh $ssh_args" $PROJECT_DIR$1 $REMOTE_USER@$SERVER_NAME:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
+      #--delete-after
+      rsync -Pazq --delete --filter=":- $PROJECT_DIR/.gitignore" -e "ssh $ssh_args" $PROJECT_DIR$1 $REMOTE_USER@$SERVER_NAME:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
 
     elif [ $REMOTE_TYPE == "ec2_instance_connect" ];
     then
-      rsync -Pazq --delete -e "ssh $KEYARG -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id $INSTANCE_ID --profile $AWS_PROFILE --region $AWS_REGION'" $PROJECT_DIR$1 $REMOTE_USER@$INSTANCE_ID:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
+      rsync -Pazq --delete --filter=":- $PROJECT_DIR/.gitignore" -e "ssh $KEYARG -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id $INSTANCE_ID --profile $AWS_PROFILE --region $AWS_REGION'" $PROJECT_DIR$1 $REMOTE_USER@$INSTANCE_ID:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
 
     elif [ $REMOTE_TYPE == "teleport" ];
     then
-      rsync -Pazq --delete -e "tsh ssh" $PROJECT_DIR$1 $REMOTE_USER@$SERVER_NAME:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
+      rsync -Pazq --delete --filter=":- $PROJECT_DIR/.gitignore" -e "tsh ssh" $PROJECT_DIR$1 $REMOTE_USER@$SERVER_NAME:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
 
     elif [ $REMOTE_TYPE == "local" ];
     then
-      rsync -Pazq --delete $PROJECT_DIR$1 $ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
+      rsync -Pazq --delete --filter=":- $PROJECT_DIR/.gitignore" $PROJECT_DIR$1 $ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
     else
       error "Unsupported REMOTE_TYPE = $REMOTE_TYPE"
       exit 1
