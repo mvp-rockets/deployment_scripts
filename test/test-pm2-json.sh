@@ -27,8 +27,8 @@ PORT_ADMIN=3010
 #echo "$APP_ENV auth should not be included"
 #generate_pm2_start_json auth "$APP_ENV-auth.deploy.json"
 #
-#echo "$APP_ENV background should not be included"
-#generate_pm2_start_json background "$APP_ENV-background.deploy.json"
+#echo "$APP_ENV backend should not be included"
+#generate_pm2_start_json backend "$APP_ENV-backend.deploy.json"
 
 #generate_pm2_start_json web "web.deploy.json"
 #generate_pm2_start_json admin "admin.deploy.json"

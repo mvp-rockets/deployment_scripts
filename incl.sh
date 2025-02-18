@@ -310,7 +310,7 @@ EOT_JS
 # "max_memory_restart": "1G",
 
 case "$1" in
-  web)
+  web|admin)
   service_port="PORT_"$(echo "$3" | tr '[:lower:]' '[:upper:]')
   json=$(echo "$json" | jq '.env.NODE_ENV = "production"')
   json=$(echo "$json" | jq --arg p "${!service_port}" '.env.PORT = $p')
