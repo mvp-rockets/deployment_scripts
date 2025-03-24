@@ -77,10 +77,16 @@ do
     else
       export DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR/$service/releases/$GIT_COMMIT"
 
-      target_group="TARGET_GROUP_"$(echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]')
-      if [[ -n ${!target_group} ]]; then
-          export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
+      # Following variables can be used: $SERVER_NAME, $TARGET_GROUP, $TARGET_GROUP_<DEPLOY_SERVICE> (e.g. TARGET_GROUP_API, TARGET_GROUP_BACKEND, ...)
+      if [[ -n $TARGET_GROUP ]]; then
+        export AWS_EC2_TARGET_GROUP_ARN=$TARGET_GROUP
+      elif [[ -z $SERVER_NAME ]]; then
+        target_group="TARGET_GROUP_"$(echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]')
+        if [[ -n ${!target_group} ]]; then
+            export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
+        fi
       fi
+
       if [[ $self_deployment == true ]];then
           export REMOTE_TYPE='local'
           unset AWS_EC2_TARGET_GROUP_ARN
