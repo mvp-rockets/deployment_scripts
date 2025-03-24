@@ -34,26 +34,26 @@ function exec_remote()
     if [ $REMOTE_TYPE == "ssh" ];
     then
       ssh_args="$KEYARG -t -o ControlMaster=auto -o ControlPath=~/.ssh/ssh-master-%C -o ControlPersist=60"
-      ssh $ssh_args $REMOTE_USER@$SERVER_NAME "$1" 
+      ssh $ssh_args $REMOTE_USER@$SERVER_NAME "$@" 
 
     elif [ $REMOTE_TYPE == "ec2_instance_connect" ];
     then
       ssh $KEYARG -t $REMOTE_USER@$INSTANCE_ID \
         -o ProxyCommand='aws ec2-instance-connect open-tunnel \
         --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' \
-        --region '$AWS_REGION'' "$1"
+        --region '$AWS_REGION'' "$@"
     # aws ec2-instance-connect --region '$AWS_REGION' --instance-id '' --instance-os-user ubuntu --ssh-public-key file://<path>
     elif [ $REMOTE_TYPE == "aws_session_manager" ]; # Needs testing
     then
-      aws ssm --region $AWS_REGION start-session --target $INSTANCE_ID  "$1"
+      aws ssm --region $AWS_REGION start-session --target $INSTANCE_ID  "$@"
 
     elif [ $REMOTE_TYPE == "teleport" ];
     then
-      tsh ssh -t $REMOTE_USER@$SERVER_NAME "$1"
+      tsh ssh -t $REMOTE_USER@$SERVER_NAME "$@"
 
     elif [ $REMOTE_TYPE == "local" ];
     then
-      eval " $1"
+      eval " $@"
 
     else
         error "Unsupported REMOTE_TYPE = $REMOTE_TYPE"
@@ -309,6 +309,8 @@ EOT_JS
 # "min_uptime": 5000, 
 # "max_memory_restart": "1G",
 
+#TODO: Fix the script path depending upon if it's typescript or not
+#e.g. index.js becomes build/src/main.js
 case "$1" in
   web|admin)
   service_port="PORT_"$(echo "$3" | tr '[:lower:]' '[:upper:]')
@@ -375,4 +377,17 @@ function check_for_commands() {
       echo "jq not found. Please install jq."
       exit 1
   fi
+}
+function smoke_tests() {
+
+  # Check if AWS CLI and jq are installed
+    log "Running smoke tests to verify deployment"
+    "$SCRIPT_DIR/run-smoke-tests.sh" "$APP_ENV"
+    SMOKE_TEST_RESULT=$?
+
+    if [ $SMOKE_TEST_RESULT -ne 0 ]; then
+        error "❌ Smoke tests failed! Please check the logs and fix any issues."
+        # Uncomment the line below if you want deployment to fail when smoke tests fail
+        # exit 1
+    fi
 }
