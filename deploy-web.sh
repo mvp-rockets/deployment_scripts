@@ -69,7 +69,7 @@ if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
     if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
         arg="ip"
     fi
-    primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DIR/services.json)
+    primary_prj=$(jq -c -r '.services[] | select(.primary == true) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
 
     servers=( $(node "$PROJECT_DIR/$primary_prj/get-instances-by-target-group.js" $arg ) )
 else
