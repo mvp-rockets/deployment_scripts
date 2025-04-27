@@ -52,20 +52,6 @@ fi
 
 log "project: $(basename $PROJECT_DIR) env: $APP_ENV commit: $GIT_COMMIT services: ${DEPLOY_SERVICES[@]}"
 
-# Ensure that node_modules are present as we need it for get-instances-by-target-group script
-primary_prj=$(jq -c -r '.services[] | select(.primary == true) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
-if [[ ! -d "$PROJECT_DIR/$primary_prj/node_modules" ]]; then
-    pushd .
-    cd "$PROJECT_DIR/$primary_prj"
-
-    if command -v nvm &> /dev/null
-    then
-      nvm use
-    fi
-    npm install --force
-    popd
-fi
-
 for service in "${DEPLOY_SERVICES[@]}"
 do
     export DEPLOY_SERVICE_TYPE=$(jq -c -r --arg n "$service" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json)

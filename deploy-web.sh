@@ -10,6 +10,8 @@ set -e
 # 8. run remote start
 # 9. update remote history log
 # 10. clean up older deployments
+# 11. Update deployment logs
+# 12. Cleanup
  
 # Init
 source "$SCRIPT_DIR/incl.sh"
@@ -69,9 +71,7 @@ if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
     if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
         arg="ip"
     fi
-    primary_prj=$(jq -c -r '.services[] | select(.primary == true) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
-
-    servers=( $(node "$PROJECT_DIR/$primary_prj/get-instances-by-target-group.js" $arg ) )
+    servers=( $(node "$SCRIPT_DIR/get-instance-4-target-group.sh" $arg ) )
 else
     servers=( $SERVER_NAME )
 fi
