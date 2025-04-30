@@ -6,7 +6,7 @@ PROJECT_DIR=$(builtin cd "$SCRIPT_DIR/../"; pwd)
 
 usage()
 {
-    local envs=($(find ./env/ -type f | sed 's|.*\.||' | sort -u))
+    local envs=($(find $SCRIPT_DIR/env/ -type f | sed 's|.*\.||' | sort -u))
     local services=($(jq -c '.services[].name' $PROJECT_DIR/services.json))
     echo "usage: $(basename $0) environment service (optional)"
     echo ""
@@ -74,7 +74,7 @@ elif [[ -z $SERVER_NAME && -n $TARGET_GROUP_ARN ]]; then
     INSTANCE_ID=${INSTANCE_IDS[0]}
   fi
 
-  if [ $REMOTE_TYPE != "ec2_instance_connect" && $REMOTE_TYPE != "aws_session_manager" ]; then
+  if [[ $REMOTE_TYPE != "ec2_instance_connect" && $REMOTE_TYPE != "aws_session_manager" ]]; then
     # Get the public DNS of the selected instance
     #PUBLIC_DNS=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID | jq -r '.Reservations[].Instances[].PublicDnsName')
     SERVER_NAME=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID | jq -r '.Reservations[].Instances[].PublicIpAddress')

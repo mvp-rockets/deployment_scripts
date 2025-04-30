@@ -17,6 +17,7 @@ pm2 startOrRestart deploy.config.json
 
 running=$(pm2 jlist | jq .[].name | wc -l)
 saved=$(jq .[].name ~/.pm2/dump.pm2 | wc -l)
+((saved++)) # Ensure that we take pm2-logrotate into account
 if [ $running -ne $saved ];
 then
     echo "pm2 tasks mismatch. running: $running Saved: $saved."

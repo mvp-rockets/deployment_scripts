@@ -7,7 +7,7 @@ PROJECT_DIR=$(builtin cd "$SCRIPT_DIR/../"; pwd)
 
 usage()
 {
-    local envs=($(find ./env/ -type f | sed 's|.*\.||' | sort -u))
+    local envs=($(find $SCRIPT_DIR/env/ -type f | sed 's|.*\.||' | sort -u))
     local services=($(jq -c '.services[].name' $PROJECT_DIR/services.json))
     echo "Usage: $(basename $0) environment service --self(optional)"
     echo ""

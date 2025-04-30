@@ -71,7 +71,7 @@ if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
     if [ $REMOTE_TYPE != "ec2_instance_connect" ]; then
         arg="ip"
     fi
-    servers=( $(node "$SCRIPT_DIR/get-instance-4-target-group.sh" $arg ) )
+    servers=( $("$SCRIPT_DIR/get-instance-4-target-group.sh" $arg ) )
 else
     servers=( $SERVER_NAME )
 fi

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 # Check if AWS_EC2_TARGET_GROUP_ARN is set

@@ -378,16 +378,16 @@ function check_for_commands() {
       exit 1
   fi
 }
+
 function smoke_tests() {
 
-  # Check if AWS CLI and jq are installed
-    log "Running smoke tests to verify deployment"
-    "$SCRIPT_DIR/run-smoke-tests.sh" "$APP_ENV"
-    SMOKE_TEST_RESULT=$?
+  log "Running smoke tests to verify deployment"
+  "$SCRIPT_DIR/run-smoke-tests.sh" "$APP_ENV"
+  SMOKE_TEST_RESULT=$?
 
-    if [ $SMOKE_TEST_RESULT -ne 0 ]; then
-        error "❌ Smoke tests failed! Please check the logs and fix any issues."
-        # Uncomment the line below if you want deployment to fail when smoke tests fail
-        # exit 1
-    fi
+  if [ $SMOKE_TEST_RESULT -ne 0 ]; then
+    error "❌ Smoke tests failed! Please check the logs and fix any issues."
+    # Uncomment the line below if you want deployment to fail when smoke tests fail
+    # exit 1
+  fi
 }
