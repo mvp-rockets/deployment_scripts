@@ -15,7 +15,7 @@ then
 elif [[ ! -d "$HOME/.nvm" ]]
 then 
   cd ~
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
   TEMP_FILE=$(mktemp tmp.XXXXXXXXXX)
   echo  'export NVM_DIR="$HOME/.nvm"' > $TEMP_FILE
   echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm' >> $TEMP_FILE
