@@ -4,6 +4,7 @@
 - [4. How to run](#4-how-to-run)
 - [5. Other commands](#5-other-scripts)
 - [6. Understanding the design](#6-understanding-the-design)
+- [7. Testing](#7-testing)
 
 ## 1. Introduction
 
@@ -87,5 +88,6 @@ Folder structure and their contents:
     └── remote
         └── current                  - Used by the test scripts
 
+## 7. Testing
 
-
+See [Readme](test/readme.md)

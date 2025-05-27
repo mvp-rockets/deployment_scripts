@@ -31,17 +31,22 @@ fi
 source "$SCRIPT_DIR/incl.sh"
 load_vars "$SCRIPT_DIR/env/.env.$APP_ENV"
 export_vars
-DEPLOY_SERVICES=("${2:-all}")
-if [ ${DEPLOY_SERVICES[0]} != "all" ]
+DEPLOY_SERVICES=("${2:-default}")
+if [ ${DEPLOY_SERVICES[0]} == "all" ];
 then
+    # In case of all, deploy all services
+    DEPLOY_SERVICES=($(jq -c -r '.services[].name' $PROJECT_DIR/services.json))
+
+elif [ ${DEPLOY_SERVICES[0]} == "default" ];
+then
+    DEPLOY_SERVICES=($(jq -c -r '.services |= map(select(.default != false)) | .services[].name' $PROJECT_DIR/services.json))
+
+else
     DEPLOY_SERVICE_TYPE=$(jq -c -r --arg n "${DEPLOY_SERVICES[0]}" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json)
     if [ -z $DEPLOY_SERVICE_TYPE ]; then
         error "No deployable service ${DEPLOY_SERVICE[0]} found."
         usage
     fi
-else
-    # In case of all, deploy all services
-    DEPLOY_SERVICES=($(jq -c -r '.services[].name' $PROJECT_DIR/services.json))    
 fi
 
 if [[ $* == *--self* ]]; then
@@ -54,6 +59,11 @@ log "project: $(basename $PROJECT_DIR) env: $APP_ENV commit: $GIT_COMMIT service
 
 for service in "${DEPLOY_SERVICES[@]}"
 do
+    info=$(jq -c -r --arg n "$service" '.services[] | select(.name == $n)' $PROJECT_DIR/services.json)
+    excluded=$(echo $info | jq -c -r --arg env "$APP_ENV" '.excludeEnvs | if . != null then any(. == $env) else false end')
+    included=$(echo $info | jq -c -r --arg env "$APP_ENV" '.includeEnvs | if . != null then any(. == $env) else true end')
+    if $excluded || ! $included ; then continue; fi
+
     export DEPLOY_SERVICE_TYPE=$(jq -c -r --arg n "$service" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json)
     export DEPLOY_SERVICE="$service"
 
@@ -62,14 +72,16 @@ do
       $SCRIPT_DIR/deploy-docker.sh
     else
       export DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR/$service/releases/$GIT_COMMIT"
-
+      target_found=false
       # Following variables can be used: $SERVER_NAME, $TARGET_GROUP, $TARGET_GROUP_<DEPLOY_SERVICE> (e.g. TARGET_GROUP_API, TARGET_GROUP_BACKEND, ...)
       if [[ -n $TARGET_GROUP ]]; then
         export AWS_EC2_TARGET_GROUP_ARN=$TARGET_GROUP
+        target_found=true
       elif [[ -z $SERVER_NAME ]]; then
         target_group="TARGET_GROUP_"$(echo "$DEPLOY_SERVICE" | tr '[:lower:]' '[:upper:]')
         if [[ -n ${!target_group} ]]; then
             export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
+            target_found=true
         fi
       fi
 
@@ -78,9 +90,13 @@ do
           unset AWS_EC2_TARGET_GROUP_ARN
           export SERVER_NAME='localhost'
       fi
+      if [[ $target_found == false ]];then
+        error "No target or server defined for deployment. Check your env file"
+        exit 1
+      fi
+
       log "Deploying $service of type $DEPLOY_SERVICE_TYPE using mode $REMOTE_TYPE"
       $SCRIPT_DIR/deploy-$DEPLOY_SERVICE_TYPE.sh
     fi
 done
 
-# end_remote_connection

@@ -33,8 +33,7 @@
     },
     {
       "type": "web",
-      "name": "ui",
-      "sub_services": { "services": [] }
+      "name": "ui"
     },
     {
       "type": "web",

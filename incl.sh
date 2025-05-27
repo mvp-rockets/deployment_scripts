@@ -191,21 +191,21 @@ check_project_type() {
     # Check for TypeScript project
     if [[ -f "$dir/tsconfig.json" ]]; then
         PROJECT_TYPE="typescript"
-        echo "typescript"
+        #echo "typescript"
         return 0
     fi
 
     # Check for JavaScript project (Node.js)
     if [[ -f "$dir/package.json" ]]; then
         PROJECT_TYPE="javascript"
-        echo "javascript"
+        #echo "javascript"
         return 0
     fi
 
     # Check for Go project
     if [[ -f "$dir/go.mod" ]]; then
         PROJECT_TYPE="go"
-        echo "go"
+        #echo "go"
         return 0
     fi
 
@@ -213,17 +213,17 @@ check_project_type() {
     if [[ -f "$dir/pubspec.yaml" ]]; then
         if grep -q "flutter:" "$dir/pubspec.yaml"; then
             PROJECT_TYPE="flutter"
-            echo "flutter"
+            #echo "flutter"
             return 0
         else
             PROJECT_TYPE="dart"
-            echo "dart"
+            #echo "dart"
             return 0
         fi
     fi
 
     PROJECT_TYPE="unknown" 
-    echo "unknown"
+    #echo "unknown"
     return 1
 }
 
@@ -265,16 +265,19 @@ function generate_pm2_start_json()
       apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
     fi
 
-    if ! $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.excludeEnvs | if . != null then any(. == $env) else false end') &&
-      $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.includeEnvs | if . != null then any(. == $env) else true end') ;
-     then
-      readarray -t deploy_services < <(echo $info | jq -c -r '.sub_services.services[]')
+    if $(echo $info | jq -c -r '.sub_services | if . == null then false else true end') ;
+    then
+      if ! $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.excludeEnvs | if . != null then any(. == $env) else false end') &&
+        $(echo $info | jq -c -r --arg env "$APP_ENV" '.sub_services.includeEnvs | if . != null then any(. == $env) else true end') ;
+       then
+        readarray -t deploy_services < <(echo $info | jq -c -r '.sub_services.services[]')
 
-      for sub in "${deploy_services[@]}"
-      do
-        app=$(build_pm2_json $sub "$PROJECT_NAME-$APP_ENV-$sub" $service)
-        apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
-      done
+        for sub in "${deploy_services[@]}"
+        do
+          app=$(build_pm2_json $sub "$PROJECT_NAME-$APP_ENV-$sub" $service)
+          apps=$(echo "$apps" | jq --argjson app "$app" '.apps += [$app ]')
+        done
+      fi
     fi
   fi
   echo "$apps" > $TEMP_FILE
@@ -284,7 +287,7 @@ function generate_pm2_start_json()
 ## Takes 3 arguments
 # $1: type: web, api, cron, sqs, socket
 # $2: Name of the app. e.g. project-qa-api
-# $3: working directory, e.g. api, web, admin,...
+# $3: service name, e.g. api, web, admin,...
 # Env Variables that need to be defined
 # NODE_ENV, APP_ENV, ROOT_DEPLOYMENT_DIR
 function build_pm2_json()
@@ -309,8 +312,6 @@ EOT_JS
 # "min_uptime": 5000, 
 # "max_memory_restart": "1G",
 
-#TODO: Fix the script path depending upon if it's typescript or not
-#e.g. index.js becomes build/src/main.js
 case "$1" in
   web|admin)
   service_port="PORT_"$(echo "$3" | tr '[:lower:]' '[:upper:]')
@@ -324,9 +325,10 @@ case "$1" in
 EOM
   ;;
   api)
+  if [ $PROJECT_TYPE == "typescript" ]; then exec_cmd="build/src/main.js" ; else exec_cmd="./index.js"; fi
   read -r -d '' js << EOM
 {
-  "script": "./index.js",
+  "script": "$exec_cmd",
   "exec_mode" : "cluster",
   "instances" : 2,
   "combine_logs": true,
@@ -336,11 +338,12 @@ EOM
 EOM
   ;;
   cron|backend|sqs|socket)
+  if [ $PROJECT_TYPE == "typescript" ]; then exec_cmd="build/src/$1.js" ; else exec_cmd="./$1-index.js"; fi
   read -r -d '' js << EOM
 {
   "exp_backoff_restart_delay": "500",
   "max_memory_restart": "2G",
-  "script": "./$1-index.js",
+  "script": "$exec_cmd",
   "node_args": [
      "--max_old_space_size=2048"
    ]}

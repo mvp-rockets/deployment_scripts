@@ -40,12 +40,11 @@ do
   APP_ENV=$sub
   echo "$APP_ENV loaded ..."
   jq -c '.services[]' ./pm2-config/services.json | while read service; do
-      # do stuff with $i
       sname=$(echo $service | jq -r '.name')
       stype=$(echo $service | jq -r '.type')
-      readarray -t deploy_services < <(echo $service | jq -c -r '.sub_services[]')
+      readarray -t deploy_services < <(echo $service | jq -c -r '.sub_services | if . == null then [] else .services end')
       echo "Services generated: $sname - $stype { ${deploy_services[*]} }"
-    generate_pm2_start_json $sname "$APP_ENV-$sname.config.json" 'services.json' 
+      generate_pm2_start_json $sname "$APP_ENV-$sname.config.json" 'services.json' 
   done
 done
 
