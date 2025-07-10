@@ -89,6 +89,7 @@ do
           export REMOTE_TYPE='local'
           unset AWS_EC2_TARGET_GROUP_ARN
           export SERVER_NAME='localhost'
+          target_found=true
       fi
       if [[ $target_found == false ]];then
         error "No target or server defined for deployment. Check your env file"
