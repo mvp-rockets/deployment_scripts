@@ -108,12 +108,12 @@ function export_vars()
     export APP_ENV=$APP_ENV
     export NODE_ENV=$APP_ENV
     #parent_dir="$(dirname -- "$(realpath -- "$file_or_dir_name")")"
-    export IDENTITY_FILE="$SCRIPT_DIR/$IDENTITY_FILE"
     export GIT_COMMIT="$(env -i git rev-parse --short HEAD)"
     export DEPLOYMENT_DIR="/home/$REMOTE_USER/apps/$PROJECT_NAME/$APP_ENV"
     export ROOT_DEPLOYMENT_DIR="/home/$REMOTE_USER/apps/$PROJECT_NAME/$APP_ENV"
 
     if [[ "$IDENTITY_FILE" != "" ]]; then
+        export IDENTITY_FILE="$SCRIPT_DIR/$IDENTITY_FILE"
         export KEYARG="-i $IDENTITY_FILE"
     else
         export KEYARG=
