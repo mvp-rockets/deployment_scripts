@@ -75,6 +75,7 @@ update_node.sh
 
 Folder structure and their contents:
 
+```
 ├── env                              - Contains all environment definitions and their respective variable values in standard .env files
 ├── lib                              - Helper scripts. Currently for manipulating and reading env files
 ├── misc                             - Util scripts. For installing dependencies, syncing to s3, setup ques, ...
@@ -87,6 +88,7 @@ Folder structure and their contents:
     ├── pm2-config                   - Example services.json files used to test the generation of pm2 config files
     └── remote
         └── current                  - Used by the test scripts
+```
 
 ## 7. Testing
 

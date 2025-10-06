@@ -114,7 +114,7 @@ function export_vars()
 
     if [[ "$IDENTITY_FILE" != "" ]]; then
         export IDENTITY_FILE="$SCRIPT_DIR/$IDENTITY_FILE"
-        export KEYARG="-i $IDENTITY_FILE"
+        export KEYARG="-i $IDENTITY_FILE -o IdentitiesOnly=yes"
     else
         export KEYARG=
     fi
