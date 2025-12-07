@@ -32,6 +32,7 @@ $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
+$SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE="$DEPLOY_SERVICE"
 
 # 2. Prepare for build
 cd "$PROJECT_DIR/$DEPLOY_SERVICE"
@@ -62,7 +63,7 @@ fi
 
 # 4. Build next
 log "Building $DEPLOY_SERVICE"
-npm run build:$APP_ENV
+npm run build
 npm prune --production
 
 ## Start of loop
@@ -97,7 +98,7 @@ do
     sync "/$DEPLOY_SERVICE/.next" "$deployment_path"
     sync "/$DEPLOY_SERVICE/.nvmrc" "$deployment_path"
     sync "/$DEPLOY_SERVICE/node_modules" "$deployment_path"
-    sync "/$DEPLOY_SERVICE/env/.env.$APP_ENV" "$deployment_path/.env"
+    #sync "/$DEPLOY_SERVICE/env/.env.$APP_ENV" "$deployment_path/.env"
     sync "/$DEPLOY_SERVICE/next.config.js" "$deployment_path"
     sync "/$DEPLOY_SERVICE/public" "$deployment_path"
     sync "/$DEPLOY_SERVICE/package*.json" "$deployment_path"
@@ -110,6 +111,7 @@ do
 
     # 8. run remote start
     log "start $DEPLOY_SERVICE"
+    run_remote "$deployment_path" "init_web.sh"
     run_remote "$deployment_path" "start_service.sh"
 
     # 9. update remote history log

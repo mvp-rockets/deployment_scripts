@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 set -e
 
-DEPLOYMENT_DIR=$(pwd)
-ROOT_DEPLOYMENT_DIR=$(builtin cd "../../"; pwd)
+set -a
+source .env.deploy set
+set +a
 
-cd $ROOT_DEPLOYMENT_DIR
+SERVICE_DIR="$ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE"
 
-rm -f $ROOT_DEPLOYMENT_DIR/current
+cd $SERVICE_DIR
 
-echo "creating symbolic link"
-ln -sf $DEPLOYMENT_DIR $ROOT_DEPLOYMENT_DIR/current
+rm -f $SERVICE_DIR/current
 
-echo "starting api"
-cd $ROOT_DEPLOYMENT_DIR/current
+echo "creating symbolic link for $GIT_COMMIT"
+ln -sf $DEPLOYMENT_DIR $SERVICE_DIR/current
+
+echo "starting service $DEPLOY_SERVICE"
+cd $SERVICE_DIR/current
 pm2 startOrRestart deploy.config.json
 
 running=$(pm2 jlist | jq .[].name | wc -l)

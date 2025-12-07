@@ -83,6 +83,8 @@ do
             export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
             target_found=true
         fi
+	  else 
+	    target_found=true
       fi
 
       if [[ $self_deployment == true ]];then
