@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -e
-version=2.0
+version=2.1
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJECT_DIR=$(builtin cd "$SCRIPT_DIR/../"; pwd)
@@ -83,7 +83,7 @@ do
             export AWS_EC2_TARGET_GROUP_ARN=${!target_group}
             target_found=true
         fi
-	  else 
+      elif [[ -n $SERVER_NAME ]]; then
 	    target_found=true
       fi
 
