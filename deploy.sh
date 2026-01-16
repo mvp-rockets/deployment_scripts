@@ -39,7 +39,7 @@ then
 
 elif [ ${DEPLOY_SERVICES[0]} == "default" ];
 then
-    DEPLOY_SERVICES=($(jq -c -r '.services |= map(select(.default != false)) | .services[].name' $PROJECT_DIR/services.json))
+    DEPLOY_SERVICES=($(jq -c -r '.services |= map(select(.primary != false)) | .services[].name' $PROJECT_DIR/services.json))
 
 else
     DEPLOY_SERVICE_TYPE=$(jq -c -r --arg n "${DEPLOY_SERVICES[0]}" '.services[] | select(.name == $n) | .type' $PROJECT_DIR/services.json)

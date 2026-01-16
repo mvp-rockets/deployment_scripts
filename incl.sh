@@ -175,43 +175,43 @@ function sync()
 #      echo "No valid project detected in the given directory."
 #    fi
 check_project_type() {
-    local dir="$1"
+    local dir=$(jq -c -r --arg se "$1" '.services[] | select(.name == $se) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
 
-    if [[ -z "$dir" ]]; then
+    if [[ -z "$PROJECT_DIR/$dir" ]]; then
         echo "Usage: check_project_type <directory>"
         return 1
     fi
 
     # Check if the argument is a directory
-    if [[ ! -d "$dir" ]]; then
+    if [[ ! -d "$PROJECT_DIR/$dir" ]]; then
         echo "Error: Directory '$dir' does not exist."
         return 1
     fi
 
     # Check for TypeScript project
-    if [[ -f "$dir/tsconfig.json" ]]; then
+    if [[ -f "$PROJECT_DIR/$dir/tsconfig.json" ]]; then
         PROJECT_TYPE="typescript"
         #echo "typescript"
         return 0
     fi
 
     # Check for JavaScript project (Node.js)
-    if [[ -f "$dir/package.json" ]]; then
+    if [[ -f "$PROJECT_DIR/$dir/package.json" ]]; then
         PROJECT_TYPE="javascript"
         #echo "javascript"
         return 0
     fi
 
     # Check for Go project
-    if [[ -f "$dir/go.mod" ]]; then
+    if [[ -f "$PROJECT_DIR/$dir/go.mod" ]]; then
         PROJECT_TYPE="go"
         #echo "go"
         return 0
     fi
 
     # Check for Flutter or Dart project
-    if [[ -f "$dir/pubspec.yaml" ]]; then
-        if grep -q "flutter:" "$dir/pubspec.yaml"; then
+    if [[ -f "$PROJECT_DIR/$dir/pubspec.yaml" ]]; then
+        if grep -q "flutter:" "$PROJECT_DIR/$dir/pubspec.yaml"; then
             PROJECT_TYPE="flutter"
             #echo "flutter"
             return 0

@@ -17,7 +17,7 @@ deployment_path="/$DEPLOY_SERVICE/releases/$GIT_COMMIT"
 
 log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE $DEPLOY_SERVICE_TYPE"
 
-check_project_type "$PROJECT_DIR/$DEPLOY_SERVICE"
+check_project_type "$DEPLOY_SERVICE"
 export PROJECT_TYPE
 
 # 1. generate scripts & update scripts for remote
