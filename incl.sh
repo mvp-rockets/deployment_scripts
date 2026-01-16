@@ -325,7 +325,7 @@ case "$1" in
 EOM
   ;;
   api)
-  if [ $PROJECT_TYPE == "typescript" ]; then exec_cmd="build/src/main.js" ; else exec_cmd="./index.js"; fi
+  if [ "$PROJECT_TYPE" == "typescript" ]; then exec_cmd="build/src/main.js" ; else exec_cmd="./index.js"; fi
   read -r -d '' js << EOM
 {
   "script": "$exec_cmd",
@@ -338,7 +338,7 @@ EOM
 EOM
   ;;
   cron|backend|sqs|socket)
-  if [ $PROJECT_TYPE == "typescript" ]; then exec_cmd="build/src/$1.js" ; else exec_cmd="./$1-index.js"; fi
+  if [ "$PROJECT_TYPE" == "typescript" ]; then exec_cmd="build/src/$1.js" ; else exec_cmd="./$1-index.js"; fi
   read -r -d '' js << EOM
 {
   "exp_backoff_restart_delay": "500",
