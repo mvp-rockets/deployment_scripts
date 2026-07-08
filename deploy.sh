@@ -31,6 +31,9 @@ fi
 source "$SCRIPT_DIR/incl.sh"
 load_vars "$SCRIPT_DIR/env/.env.$APP_ENV"
 export_vars
+
+awsp
+
 DEPLOY_SERVICES=("${2:-default}")
 if [ ${DEPLOY_SERVICES[0]} == "all" ];
 then

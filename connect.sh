@@ -30,6 +30,8 @@ source "$SCRIPT_DIR/incl.sh"
 load_vars "$SCRIPT_DIR/env/.env.$APP_ENV"
 export_vars
 
+awsp
+
 # Following variables can be used: $SERVER_NAME, $TARGET_GROUP, $TARGET_GROUP_<DEPLOY_SERVICE> (e.g. TARGET_GROUP_API, TARGET_GROUP_BACKEND, ...)
 
 if [[ -z $SERVER_NAME ]] && [[ -z $TARGET_GROUP && -z "$2" ]]; then

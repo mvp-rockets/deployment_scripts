@@ -394,3 +394,21 @@ function smoke_tests() {
     # exit 1
   fi
 }
+
+awsp() {
+  if [ -z "$AWS_PROFILE" ]; then
+    return 0
+  fi
+
+  echo "Switching to profile: $AWS_PROFILE"
+
+  # Try a quick STS check
+  if ! aws sts get-caller-identity >/dev/null 2>&1; then
+    echo "Session expired or not logged in. Logging in via Chrome..."
+    BROWSER=google-chrome aws sso login --profile "$AWS_PROFILE" || return 1
+  fi
+
+  echo "Authenticated as:"
+  aws sts get-caller-identity
+}
+
