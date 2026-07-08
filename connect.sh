@@ -105,8 +105,12 @@ then
 
 elif [ $REMOTE_TYPE == "aws_session_manager" ];
 then
-  
-  aws ssm --region $AWS_REGION start-session --target $INSTANCE_ID 
+
+  ssh $KEYARG -t $REMOTE_USER@$INSTANCE_ID \
+    -o ProxyCommand='aws ssm start-session \
+    --target '$INSTANCE_ID' --document-name AWS-StartSSHSession \
+    --parameters portNumber=%p --profile '$AWS_PROFILE' \
+    --region '$AWS_REGION''
 
 elif [ $REMOTE_TYPE == "teleport" ];
 then

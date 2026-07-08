@@ -43,9 +43,13 @@ function exec_remote()
         --instance-id '$INSTANCE_ID' --profile '$AWS_PROFILE' \
         --region '$AWS_REGION'' "$@"
     # aws ec2-instance-connect --region '$AWS_REGION' --instance-id '' --instance-os-user ubuntu --ssh-public-key file://<path>
-    elif [ $REMOTE_TYPE == "aws_session_manager" ]; # Needs testing
+    elif [ $REMOTE_TYPE == "aws_session_manager" ];
     then
-      aws ssm --region $AWS_REGION start-session --target $INSTANCE_ID  "$@"
+      ssh $KEYARG -t $REMOTE_USER@$INSTANCE_ID \
+        -o ProxyCommand='aws ssm start-session \
+        --target '$INSTANCE_ID' --document-name AWS-StartSSHSession \
+        --parameters portNumber=%p --profile '$AWS_PROFILE' \
+        --region '$AWS_REGION'' "$@"
 
     elif [ $REMOTE_TYPE == "teleport" ];
     then
@@ -149,6 +153,10 @@ function sync()
     elif [ $REMOTE_TYPE == "ec2_instance_connect" ];
     then
       rsync -Pazq --delete --filter=":- $PROJECT_DIR/.gitignore" -e "ssh $KEYARG -o ProxyCommand='aws ec2-instance-connect open-tunnel --instance-id $INSTANCE_ID --profile $AWS_PROFILE --region $AWS_REGION'" $PROJECT_DIR$1 $REMOTE_USER@$INSTANCE_ID:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
+
+    elif [ $REMOTE_TYPE == "aws_session_manager" ];
+    then
+      rsync -Pazq --delete --filter=":- $PROJECT_DIR/.gitignore" -e "ssh $KEYARG -o ProxyCommand='aws ssm start-session --target $INSTANCE_ID --document-name AWS-StartSSHSession --parameters portNumber=%p --profile $AWS_PROFILE --region $AWS_REGION'" $PROJECT_DIR$1 $REMOTE_USER@$INSTANCE_ID:$ROOT_DEPLOYMENT_DIR$2 ${rest_args[@]}
 
     elif [ $REMOTE_TYPE == "teleport" ];
     then

@@ -70,6 +70,20 @@ then
   sudo mv ./snyk /usr/local/bin/
 fi
 
+if ! command -v session-manager-plugin &> /dev/null
+then
+  if [ "$(dpkg --print-architecture)" == "arm64" ]; then
+    plugin_url="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_arm64/session-manager-plugin.deb"
+  else
+    plugin_url="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
+  fi
+
+  TEMP_FILE=$(mktemp tmp.XXXXXXXXXX)
+  curl -sSL "$plugin_url" -o "$TEMP_FILE"
+  sudo dpkg -i "$TEMP_FILE"
+  rm -f "$TEMP_FILE"
+fi
+
 # Init
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJECT_DIR=$(builtin cd "$SCRIPT_DIR/../"; pwd)
