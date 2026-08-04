@@ -17,13 +17,11 @@ then
   nvm use
 fi
 
-npm ci --production --silent
-# npm ci --include=dev  # next.js uses this
+npm ci
 
 echo "build env"
 if [[ -f "$DEPLOYMENT_DIR/tsconfig.json" ]]; then
   npm run load-secrets
-  npm run build
   echo "Running migration scripts"
   npm run migration:run --env=$APP_ENV
 else  # Our older template
@@ -33,10 +31,3 @@ else  # Our older template
   npm run db:seed:all --env=$APP_ENV
 fi
 
-#next specific
-#npm run build:$APP_ENV
-#npm prune --production
-
-#npm run sqs:create:dlq --env=$APP_ENV
-#npm run sqs:create --env=$APP_ENV
-#npm run sqs:associate:dlq --env=$APP_ENV

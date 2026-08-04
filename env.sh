@@ -73,10 +73,10 @@ main() {
   elif [[ -n "$APP_ENV" && -z "$SECRETS" && -n "$VALIDATE" ]]; then
     validate_environment $APP_ENV
   elif [[ -n "$APP_ENV" && -n "$SECRETS" && -n "$CREATE" ]]; then
-    file="${FILE:="$PROJECT_DIR/$primary_prj/env/.env.$APP_ENV"}"
+    file="${FILE:="$PROJECT_DIR/$primary_prj/envs/.env.$APP_ENV"}"
     create_secrets $APP_ENV $file
   elif [[ -n "$APP_ENV" && -n "$SECRETS" && -n "$UPDATE" ]]; then
-    file="${FILE:="$PROJECT_DIR/$primary_prj/env/.env.$APP_ENV"}"
+    file="${FILE:="$PROJECT_DIR/$primary_prj/envs/.env.$APP_ENV"}"
     update_secrets $APP_ENV $file
   elif [[ -n "$APP_ENV" && -n "$SECRETS" && -n "$DELETE" ]]; then
     delete_secrets $APP_ENV
@@ -125,9 +125,9 @@ create_environment() {
   local services=($(jq -r -c '.services[] | select(.type | . and contains("api")).name' $PROJECT_DIR/services.json))
   for api in "${services[@]}"
   do
-    cp "$PROJECT_DIR/generators/env/env.api" "$PROJECT_DIR/$api/env/.env.$APP_ENV"
-    "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/$api/env/.env.$APP_ENV" set APP_ENV="$APP_ENV"
-    "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/$api/env/.env.$APP_ENV" set ENVIRONMENT="$APP_ENV"
+    cp "$PROJECT_DIR/generators/env/env.api" "$PROJECT_DIR/$api/envs/.env.$APP_ENV"
+    "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/$api/envs/.env.$APP_ENV" set APP_ENV="$APP_ENV"
+    "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/$api/envs/.env.$APP_ENV" set ENVIRONMENT="$APP_ENV"
     file_list+=("$api/env/.env.$APP_ENV")
   done
 
@@ -170,7 +170,7 @@ delete_environment() {
   local services=($(jq -r -c '.services[] | select(.type | . and contains("api")).name' $PROJECT_DIR/services.json))
   for api in "${services[@]}"
   do
-    rm "$PROJECT_DIR/$api/env/.env.$APP_ENV"
+    rm "$PROJECT_DIR/$api/envs/.env.$APP_ENV"
   done
 }
 

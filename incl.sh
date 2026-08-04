@@ -110,7 +110,7 @@ function export_vars()
     export SCRIPT_DIR=$SCRIPT_DIR
     export PROJECT_DIR=$(builtin cd "$SCRIPT_DIR/../"; pwd)
     export APP_ENV=$APP_ENV
-    export NODE_ENV=$APP_ENV
+    export NODE_ENV=production
     #parent_dir="$(dirname -- "$(realpath -- "$file_or_dir_name")")"
     export GIT_COMMIT="$(env -i git rev-parse --short HEAD)"
     export DEPLOYMENT_DIR="/home/$REMOTE_USER/apps/$PROJECT_NAME/$APP_ENV"

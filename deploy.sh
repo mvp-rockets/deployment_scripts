@@ -26,7 +26,7 @@ fi
 if [ -n "$1" ]
 then
     APP_ENV=$1
-    NODE_ENV=$APP_ENV
+    NODE_ENV=production
 fi
 source "$SCRIPT_DIR/incl.sh"
 load_vars "$SCRIPT_DIR/env/.env.$APP_ENV"

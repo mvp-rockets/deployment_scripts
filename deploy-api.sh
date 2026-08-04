@@ -30,6 +30,21 @@ $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE="$DEPLOY_SERVICE"
 
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+if command -v nvm &> /dev/null
+then
+  nvm use
+fi
+
+# 1. Prepare for build
+cd "$PROJECT_DIR/$DEPLOY_SERVICE"
+
+rm -rf build
+rm -rf node_modules/ --force
+npm ci --include=dev
+npm run build
+
 ## Start of loop
 if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
     arg='instance'
@@ -61,16 +76,21 @@ do
     log "##### Starting $DEPLOY_SERVICE deployment #####"
     log "Syncing $DEPLOY_SERVICE"
     local_dir=$(jq -c -r --arg se "$DEPLOY_SERVICE" '.services[] | select(.name == $se) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
-    sync "/$local_dir/" "$deployment_path" \
+    sync "/$local_dir/build" "$deployment_path" \
     --exclude node_modules --exclude test --exclude logs \
     --exclude deployment-scripts --exclude postman --exclude .vscode \
     --exclude codeAnalysis --exclude .nyc_output \
     --exclude elasticmq --exclude volume
     # --exclude-from=ignore-list
 
+    sync "/$local_dir/package*.json" "$deployment_path/"
+    sync "/$local_dir/.nvmrc" "$deployment_path/"
+    sync "/$local_dir/tsconfig*.json" "$deployment_path/"
     # 4. sync the generated files
-    sync "/scripts/remote/current/*" "$deployment_path/"
+    sync "/scripts/remote/current/init_api.sh" "$deployment_path/"
+    sync "/scripts/remote/current/start_service.sh" "$deployment_path/"
     sync "/scripts/remote/current/.env.deploy" "$deployment_path/"
+    sync "/scripts/remote/current/deploy.config.json" "$deployment_path/"
 
     # sync files to the root_deployment_dir
     sync "/scripts/remote/common/*" "/$DEPLOY_SERVICE/"
