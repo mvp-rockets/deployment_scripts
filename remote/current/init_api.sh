@@ -24,6 +24,7 @@ if [[ -f "$DEPLOYMENT_DIR/tsconfig.json" ]]; then
   npm run load-secrets
   echo "Running migration scripts"
   npm run migration:run --env=$APP_ENV
+  npm run migration:seed --env=$APP_ENV
 else  # Our older template
   npm run build:env
   echo "Running migration scripts"

@@ -73,12 +73,15 @@ do
     sync "/$DEPLOY_SERVICE/dist" "$deployment_path"
     sync "/scripts/remote/current/static_service.sh" "$deployment_path/"
     sync "/scripts/remote/current/.env.deploy" "$deployment_path/"
+    
+    # sync files to the root_deployment_dir
+    sync "/scripts/remote/common/*" "/$DEPLOY_SERVICE/"
 
     # 5. Flip current symlink
     exec_remote "ln -sfn $ROOT_DEPLOYMENT_DIR$deployment_path $ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE/current"
    
     # SPA — deploy as static files
-    #run_remote "$deployment_path" "static_service.sh"
+    run_remote "$deployment_path" "static_service.sh"
 
     # 6. Update remote history log
     log "Logging current build to deployment history"
