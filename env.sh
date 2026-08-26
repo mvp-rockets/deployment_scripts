@@ -205,18 +205,51 @@ delete_secrets() {
 
 update_secrets() {
   echo "update secrets for $APP_ENV from $file"
-  current_secrets=$(aws secretsmanager list-secrets | jq ".SecretList[] | select(.Name == \"$PROJECT_NAME-$APP_ENV-api-keys\") | select(length > 0)")
 
-  if [ -n "${current_secrets}" ];
-  then
+  secret_id="$PROJECT_NAME-$APP_ENV-api-keys"
+
+  current_secrets=$(aws secretsmanager list-secrets \
+    | jq ".SecretList[] | select(.Name == \"$secret_id\") | select(length > 0)")
+
+  if [ -n "${current_secrets}" ]; then
     echo "Updating secrets"
+
+    # Get the existing AWS secret
+    aws secretsmanager get-secret-value \
+      --secret-id "$secret_id" \
+      | jq -r '.SecretString' \
+      | jq '.' > current-secrets.json
+
+    # Convert the incoming file to JSON
     if [[ $file == *.json ]]; then
-      jq '. | with_entries(if .value == null or .value == "" then empty else . end)' $file > env2.json
+      jq '. | with_entries(
+        if .value == null or .value == "" then empty else . end
+      )' "$file" > new-secrets.json
     else
-      "$SCRIPT_DIR/lib/shdotenv" --env "$file" --format json -i | jq '. | with_entries(if .value == null or .value == "" then empty else . end)' > env2.json
+      "$SCRIPT_DIR/lib/shdotenv" \
+        --env "$file" \
+        --format json -i \
+        | jq '. | with_entries(
+            if .value == null or .value == "" then empty else . end
+          )' > new-secrets.json
     fi
-    secrets=$(aws secretsmanager update-secret --secret-id "$PROJECT_NAME-$APP_ENV-api-keys" --secret-string file://env2.json)
-    rm env2.json
+
+    # Merge:
+    # - existing keys are preserved
+    # - new keys are added
+    # - existing keys supplied in the file are updated
+    jq -s '.[0] * .[1]' \
+      current-secrets.json \
+      new-secrets.json > merged-secrets.json
+
+    aws secretsmanager update-secret \
+      --secret-id "$secret_id" \
+      --secret-string file://merged-secrets.json
+
+    rm -f current-secrets.json new-secrets.json merged-secrets.json
+  else
+    echo "Secret $secret_id does not exist"
+    exit 1
   fi
 }
 
