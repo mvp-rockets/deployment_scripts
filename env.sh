@@ -63,6 +63,16 @@ main() {
   export PROJECT_NAME=$(jq -c -r '.projectName' $PROJECT_DIR/services.json)
   primary_prj=$(jq -c -r '.services[] | select(.primary == true).name' $PROJECT_DIR/services.json)
 
+  # Resolve the Secrets Manager secret ID: prefer AWS_SM_SECRET_ID from the
+  # environment's scripts/env/.env.<env> file, fall back to the default name.
+  SECRET_ID="$PROJECT_NAME-$APP_ENV-api-keys"
+  _env_file="$PROJECT_DIR/scripts/env/.env.$APP_ENV"
+  if [[ -f "$_env_file" ]]; then
+    _sm_id=$(grep -E "^AWS_SM_SECRET_ID=" "$_env_file" | head -1 | cut -d'=' -f2- | sed "s/['\"]//g" || true)
+    [[ -n "$_sm_id" ]] && SECRET_ID="$_sm_id"
+  fi
+  echo "Secret ID: $SECRET_ID"
+
   if [[ -n "$APP_ENV" && -n "$COMPARE" && "$APP_ENV" == "$COMPARE" ]]; then 
     echo "For comparison, source and destination enviroments cannot be the same."
     exit 1
@@ -181,17 +191,16 @@ validate_environment() {
 create_secrets() {
   echo "create secrets for $APP_ENV from $file"
 
-  current_secrets=$(aws secretsmanager list-secrets | jq ".SecretList[] | select(.Name == \"$PROJECT_NAME-$APP_ENV-api-keys\") | select(length > 0)")
-
-  if [ -z "${current_secrets}" ];
-  then
+  if aws secretsmanager describe-secret --secret-id "$SECRET_ID" > /dev/null 2>&1; then
+    echo "Secret already exists: $SECRET_ID — skipping create"
+  else
     echo "Creating secrets"
     if [[ $file == *.json ]]; then
       jq '. | with_entries(if .value == null or .value == "" then empty else . end)' $file > env2.json
     else
       "$SCRIPT_DIR/lib/shdotenv" --env "$file" --format json -i | jq '. | with_entries(if .value == null or .value == "" then empty else . end)' > env2.json
     fi
-    secrets=$(aws secretsmanager create-secret --name "$PROJECT_NAME-$APP_ENV-api-keys" --secret-string file://env2.json)
+    secrets=$(aws secretsmanager create-secret --name "$SECRET_ID" --secret-string file://env2.json)
     secret_arn=$(echo "$secrets" | jq .ARN -r)
     "$SCRIPT_DIR/lib/dotenv" --file "$PROJECT_DIR/scripts/env/.env.$APP_ENV" set AWS_SM_SECRET_ID="$secret_arn"
     rm env2.json
@@ -200,61 +209,37 @@ create_secrets() {
 
 delete_secrets() {
   echo "delete secrets for $APP_ENV"
-  aws secretsmanager delete-secret --secret-id "$PROJECT_NAME-$APP_ENV-api-keys" --force-delete-without-recovery 
+  aws secretsmanager delete-secret --secret-id "$SECRET_ID" --force-delete-without-recovery
 }
 
 update_secrets() {
   echo "update secrets for $APP_ENV from $file"
 
-  secret_id="$PROJECT_NAME-$APP_ENV-api-keys"
-
-  current_secrets=$(aws secretsmanager list-secrets \
-    | jq ".SecretList[] | select(.Name == \"$secret_id\") | select(length > 0)")
-
-  if [ -n "${current_secrets}" ]; then
-    echo "Updating secrets"
-
-    # Get the existing AWS secret
-    aws secretsmanager get-secret-value \
-      --secret-id "$secret_id" \
-      | jq -r '.SecretString' \
-      | jq '.' > current-secrets.json
-
-    # Convert the incoming file to JSON
-    if [[ $file == *.json ]]; then
-      jq '. | with_entries(
-        if .value == null or .value == "" then empty else . end
-      )' "$file" > new-secrets.json
-    else
-      "$SCRIPT_DIR/lib/shdotenv" \
-        --env "$file" \
-        --format json -i \
-        | jq '. | with_entries(
-            if .value == null or .value == "" then empty else . end
-          )' > new-secrets.json
-    fi
-
-    # Merge:
-    # - existing keys are preserved
-    # - new keys are added
-    # - existing keys supplied in the file are updated
-    jq -s '.[0] * .[1]' \
-      current-secrets.json \
-      new-secrets.json > merged-secrets.json
-
-    aws secretsmanager update-secret \
-      --secret-id "$secret_id" \
-      --secret-string file://merged-secrets.json
-
-    rm -f current-secrets.json new-secrets.json merged-secrets.json
-  else
-    echo "Secret $secret_id does not exist"
+  if ! aws secretsmanager describe-secret --secret-id "$SECRET_ID" > /dev/null 2>&1; then
+    echo "Secret not found: $SECRET_ID — run --secrets --create first"
     exit 1
   fi
+
+  echo "Updating secrets"
+
+  # Parse the incoming file, dropping blank/null values
+  if [[ $file == *.json ]]; then
+    new_vals=$(jq '. | with_entries(if .value == null or .value == "" then empty else . end)' "$file")
+  else
+    new_vals=$("$SCRIPT_DIR/lib/shdotenv" --env "$file" --format json -i | jq '. | with_entries(if .value == null or .value == "" then empty else . end)')
+  fi
+
+  # Fetch existing secrets and merge new values on top (new keys win, rest preserved)
+  aws secretsmanager get-secret-value --secret-id "$SECRET_ID" \
+    --query SecretString --output text \
+    | jq --argjson new "$new_vals" '. + $new' > env2.json
+
+  aws secretsmanager update-secret --secret-id "$SECRET_ID" --secret-string file://env2.json
+  rm env2.json
 }
 
 export_secrets() {
-  aws secretsmanager get-secret-value --secret-id "$PROJECT_NAME-$APP_ENV-api-keys" | jq -r '.SecretString' | jq -r '.'
+  aws secretsmanager get-secret-value --secret-id "$SECRET_ID" | jq -r '.SecretString' | jq -r '.'
 }
 
 validate_secrets() {
@@ -263,8 +248,8 @@ validate_secrets() {
 
 compare_secrets() {
   echo "compare secrets of $COMPARE against $APP_ENV "
-  aws secretsmanager get-secret-value --secret-id "$PROJECT_NAME-$APP_ENV-api-keys" | jq -r '.SecretString' | jq -r 'keys[]'
-  #instead of keys you can use keys_unsorted 
+  aws secretsmanager get-secret-value --secret-id "$SECRET_ID" | jq -r '.SecretString' | jq -r 'keys[]'
+  #instead of keys you can use keys_unsorted
 }
 
 source "$SCRIPT_DIR/lib/getoptions.sh"
