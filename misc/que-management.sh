@@ -311,11 +311,59 @@ else
         }]
     }')
 
-    aws iam put-user-policy \
-        --user-name "$IAM_USERNAME" \
-        --policy-name "$PROJECT_NAME-$ENV-sqs-access" \
-        --policy-document "$POLICY_DOC"
-    echo "Policy '$PROJECT_NAME-$ENV-sqs-access' attached to $IAM_USERNAME"
+    # Use a customer-managed policy rather than an inline (put-user-policy)
+    # policy. IAM users are frequently shared across services/projects in
+    # this account, and the aggregate size of all inline policies on a
+    # single user is capped at 2048 bytes (a hard limit, not adjustable via
+    # Service Quotas) — a couple of projects' worth of queue ARNs is enough
+    # to exceed it. Managed policies (6144 bytes each, up to 10 attachable
+    # per user by default) avoid that shared cap.
+    POLICY_NAME="$PROJECT_NAME-$ENV-sqs-access"
+    POLICY_ARN="arn:aws:iam::$ACCOUNT_ID:policy/$POLICY_NAME"
+
+    # Sort statement Resource arrays (and all object keys) so equivalent
+    # policies compare equal regardless of ARN ordering or key ordering.
+    _normalize_policy_doc() {
+        jq -cS '.Statement |= map(.Resource |= (if type == "array" then sort else . end))'
+    }
+
+    if aws iam get-policy --policy-arn "$POLICY_ARN" >/dev/null 2>&1; then
+        DEFAULT_VERSION_ID=$(aws iam get-policy --policy-arn "$POLICY_ARN" --query 'Policy.DefaultVersionId' --output text)
+        CURRENT_DOC_JSON=$(aws iam get-policy-version \
+            --policy-arn "$POLICY_ARN" \
+            --version-id "$DEFAULT_VERSION_ID" \
+            --query 'PolicyVersion.Document' --output json)
+
+        if [[ "$(echo "$CURRENT_DOC_JSON" | _normalize_policy_doc)" == "$(echo "$POLICY_DOC" | _normalize_policy_doc)" ]]; then
+            echo "  Managed policy already up to date ($DEFAULT_VERSION_ID) — skipping"
+        else
+            echo "  Managed policy exists but is out of date — publishing new version"
+
+            # A managed policy keeps at most 5 versions; prune the oldest
+            # non-default version before adding a new one if we're at the cap.
+            VERSIONS_JSON=$(aws iam list-policy-versions --policy-arn "$POLICY_ARN" --query 'Versions' --output json)
+            VERSION_COUNT=$(echo "$VERSIONS_JSON" | jq 'length')
+            if [[ "$VERSION_COUNT" -ge 5 ]]; then
+                OLDEST_VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r '[.[] | select(.IsDefaultVersion == false)] | sort_by(.CreateDate) | .[0].VersionId')
+                echo "  Pruning oldest policy version: $OLDEST_VERSION_ID"
+                aws iam delete-policy-version --policy-arn "$POLICY_ARN" --version-id "$OLDEST_VERSION_ID"
+            fi
+
+            aws iam create-policy-version \
+                --policy-arn "$POLICY_ARN" \
+                --policy-document "$POLICY_DOC" \
+                --set-as-default >/dev/null
+        fi
+    else
+        echo "  Creating managed policy: $POLICY_NAME"
+        POLICY_ARN=$(aws iam create-policy \
+            --policy-name "$POLICY_NAME" \
+            --policy-document "$POLICY_DOC" \
+            --query 'Policy.Arn' --output text)
+    fi
+
+    aws iam attach-user-policy --user-name "$IAM_USERNAME" --policy-arn "$POLICY_ARN"
+    echo "Policy '$POLICY_NAME' attached to $IAM_USERNAME"
 fi
 
 # ──────────────────────────────────────────────────────────
