@@ -274,7 +274,7 @@ else
                 },
                 {
                     "Effect": "Allow",
-                    "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+                    "Action": ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:ChangeMessageVisibility"],
                     "Resource": $queue_arn
                 }
             ]

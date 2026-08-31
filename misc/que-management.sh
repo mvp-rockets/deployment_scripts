@@ -305,7 +305,8 @@ else
                 "sqs:SendMessage",
                 "sqs:ReceiveMessage",
                 "sqs:DeleteMessage",
-                "sqs:GetQueueAttributes"
+                "sqs:GetQueueAttributes",
+                "sqs:ChangeMessageVisibility"
             ],
             "Resource": $resources
         }]
