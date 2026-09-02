@@ -10,14 +10,13 @@ echo "🚀 Starting deployment..."
 echo "📂 Source: ./dist"
 echo "📁 Destination: /var/www/$DEST"
 
-# Sync files (best practice)
-echo "📦 Syncing files..."
-sudo rsync -av --delete "./dist/" "$DESTINATION/"
+# This will work only if current deployment user has permission on $DESTINATION
+# For e.g.
+#sudo mkdir -p /var/www/$DESTINATION
+#sudo chown -R deploy:deploy /var/www/$DESTINATION
+#sudo chmod 755 /var/www/$DESTINATION
 
-# Set permissions (optional)
-echo "🔐 Setting permissions..."
-sudo find "$DESTINATION" -type d -exec chmod 755 {} +
-sudo find "$DESTINATION" -type f -exec chmod 644 {} +
-sudo chown -R www-data:www-data "$DESTINATION"
+echo "📦 Syncing files..."
+rsync -aq --delete --chmod=D755,F644 "./dist/" "$DESTINATION/"
 
 echo "✅ Deployment completed successfully!"
