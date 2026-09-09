@@ -8,7 +8,7 @@ set +a
 DESTINATION=/var/www/$PROJECT_NAME-$APP_ENV-$DEPLOY_SERVICE
 echo "🚀 Starting deployment..."
 echo "📂 Source: ./dist"
-echo "📁 Destination: /var/www/$DEST"
+echo "📁 Destination: /var/www/$DESTINATION"
 
 # This will work only if current deployment user has permission on $DESTINATION
 # For e.g.
