@@ -38,7 +38,8 @@ then
 fi
 
 # 1. Prepare for build
-cd "$PROJECT_DIR/$DEPLOY_SERVICE"
+local_dir=$(jq -c -r --arg se "$DEPLOY_SERVICE" '.services[] | select(.name == $se) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
+cd "$PROJECT_DIR/$local_dir"
 
 rm -rf build
 rm -rf node_modules/ --force
