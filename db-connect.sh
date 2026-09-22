@@ -126,6 +126,10 @@ then
       --parameters portNumber=%p --profile '$AWS_PROFILE' \
       --region '$AWS_REGION''
 
+    aws ssm start-session --profile $AWS_PROFILE --target $INSTANCE_ID \
+        --document-name AWS-StartPortForwardingSessionToRemoteHost \
+        --parameters "host=$DB_HOST,portNumber=$DB_PORT,localPortNumber=$LOCAL_PORT" 
+
 else
 
     error "Unsupported REMOTE_TYPE = $REMOTE_TYPE for db-connect"
