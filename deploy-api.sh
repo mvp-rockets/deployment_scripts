@@ -22,6 +22,9 @@ export PROJECT_TYPE
 
 # 1. generate scripts & update scripts for remote
 log "Generating $DEPLOY_SERVICE deploy config"
+# .env.deploy holds the env file's secrets: removed however the deploy ends, so a failed
+# deploy never leaves it in the working tree
+trap 'rm -f "$SCRIPT_DIR/remote/current/deploy.config.json" "$SCRIPT_DIR/remote/current/.env.deploy"' EXIT
 generate_pm2_start_json $DEPLOY_SERVICE "deploy.config.json"
 cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
@@ -29,6 +32,7 @@ $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPL
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE="$DEPLOY_SERVICE"
+set_deploy_metadata "/$SCRIPT_DIR/remote/current/.env.deploy"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -68,6 +72,7 @@ do
     fi
 
     log "Deploying $DEPLOY_SERVICE_TYPE:$DEPLOY_SERVICE on $host ($host_type)"
+    refuse_live_release "$deployment_path"
 
     # 2. Make sure the remote directory structure is present
     log "Making sure following dir is present: $DEPLOYMENT_DIR "
@@ -92,6 +97,10 @@ do
     sync "/scripts/remote/current/start_service.sh" "$deployment_path/"
     sync "/scripts/remote/current/.env.deploy" "$deployment_path/"
     sync "/scripts/remote/current/deploy.config.json" "$deployment_path/"
+    # the secret is checked against it before load-secrets (remote/common/secrets_manifest.sh)
+    if [[ -f "$SCRIPT_DIR/secrets-manifest.json" ]]; then
+        sync "/scripts/secrets-manifest.json" "$deployment_path/"
+    fi
 
     # sync files to the root_deployment_dir
     sync "/scripts/remote/common/*" "/$DEPLOY_SERVICE/"
@@ -118,6 +127,5 @@ log "##### Deployment Completed for $APP_ENV - $DEPLOY_SERVICE #####"
 # TODO: Push Deployment Success event
 
 # 10. Cleanup
-rm $SCRIPT_DIR/remote/current/deploy.config.json
-rm "$SCRIPT_DIR/remote/current/.env.deploy"
+# (the EXIT trap removes deploy.config.json and .env.deploy)
 # git checkout $SCRIPT_DIR/remote/current

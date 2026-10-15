@@ -1,22 +1,35 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Runs in the new release directory: rsync ./dist to /var/www/<project>-<env>-<service>,
+# without sudo: the server setup creates that directory owned by the deploy user (the
+# server template's nginx role does, from nginx_sites), so a missing or unwritable one is
+# a configuration error, reported as such.
+# shellcheck source-path=SCRIPTDIR/../common
+set -Eeo pipefail
 
 set -a
+# shellcheck disable=SC1091  # written by the deploy script
 source .env.deploy set
 set +a
 
-DESTINATION=/var/www/$PROJECT_NAME-$APP_ENV-$DEPLOY_SERVICE
-echo "🚀 Starting deployment..."
-echo "📂 Source: ./dist"
-echo "📁 Destination: /var/www/$DESTINATION"
+lib=${NAPSES_DEPLOY_LIB:-$ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE}
+# shellcheck source=events.sh
+. "$lib/events.sh"
 
-# This will work only if current deployment user has permission on $DESTINATION
-# For e.g.
-#sudo mkdir -p /var/www/$DESTINATION
-#sudo chown -R deploy:deploy /var/www/$DESTINATION
-#sudo chmod 755 /var/www/$DESTINATION
+DESTINATION=${STATIC_ROOT:-/var/www}/$PROJECT_NAME-$APP_ENV-$DEPLOY_SERVICE
+deploy_started
+trap 'deploy_finished failure stage=sync' ERR
+echo "Source: ./dist"
+echo "Destination: $DESTINATION"
 
-echo "📦 Syncing files..."
+if [[ ! -d $DESTINATION || ! -w $DESTINATION ]]; then
+  trap - ERR
+  echo "static: $DESTINATION is missing or not writable by $(id -un). Create it owned by" \
+    "$(id -un) in the server setup (server template: add the site to nginx_sites)." >&2
+  deploy_finished failure stage=preflight
+  exit 1
+fi
+
+echo "Syncing files..."
 rsync -aq --delete --chmod=D755,F644 "./dist/" "$DESTINATION/"
-
-echo "✅ Deployment completed successfully!"
+deploy_finished success
+echo "Deployment completed successfully"

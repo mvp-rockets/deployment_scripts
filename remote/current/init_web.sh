@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
-set -e
+# Runs in the new release directory. node_modules from the lockfile-keyed store with dev
+# dependencies (next.js builds need them) instead of npm ci (common/nm_store.sh); deploy
+# events (common/events.sh).
+# shellcheck source-path=SCRIPTDIR/../common
+set -Eeo pipefail
 
 set -a
+# shellcheck disable=SC1091  # written by the deploy script
 source .env.deploy set
 set +a
 
-if [ -d "$ROOT_DEPLOYMENT_DIR/current/node_modules" ] && [ ! -d "$DEPLOYMENT_DIR/node_modules" ]; then
-  echo "Copying node_modules dir"
-  cp -r "$ROOT_DEPLOYMENT_DIR/current/node_modules" "$DEPLOYMENT_DIR/node_modules" 
-fi
+lib=${NAPSES_DEPLOY_LIB:-$ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE}
+# shellcheck source=events.sh
+. "$lib/events.sh"
+# shellcheck source=nm_store.sh
+. "$lib/nm_store.sh"
+
+deploy_started
+trap 'deploy_finished failure stage=init' ERR
 
 export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
-if command -v nvm &> /dev/null
-then
+# shellcheck disable=SC1091
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+if command -v nvm &>/dev/null; then
   nvm use
 fi
 
-#npm ci --production --silent
-npm ci --include=dev  # next.js uses this
-
-#next specific
-#npm run build:$APP_ENV
-#npm prune --production
+NM_INSTALL_FLAGS="--include=dev" nm_store_install "$DEPLOYMENT_DIR" "$PROJECT_NAME"
