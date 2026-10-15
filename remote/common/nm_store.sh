@@ -4,7 +4,8 @@
 #   . nm_store.sh; nm_store_install <release dir> <app>    # instead of `npm ci`
 #   . nm_store.sh; nm_store_gc                              # drop entries no kept release uses
 #
-# Key = sha256(lockfile + package.json + node version + tool + install flags). On a miss the
+# Key = sha256(lockfile + package.json + node version + tool + install flags + NODE_ENV and
+# npm's omit/include settings, which decide whether dev dependencies install). On a miss the
 # install runs once, in the release, and its node_modules moves to $NM_STORE/<app>/<key>/
 # (same filesystem: a rename); every release, that one included, then gets a hard-link copy
 # (`cp -al`): near-zero disk, seconds. Relative symlinks (npm's file: directories) resolve
@@ -37,6 +38,8 @@ nm_store_key() {
   [[ $tool == pnpm ]] && lock=pnpm-lock.yaml || lock=package-lock.json
   {
     printf 'tool %s\nnode %s\nflags %s\n' "$tool" "$(node -v)" "${NM_INSTALL_FLAGS:-}"
+    # what decides whether dev dependencies are installed: NODE_ENV=production omits them
+    printf 'node_env %s\nomit %s\ninclude %s\n' "${NODE_ENV:-}" "${npm_config_omit:-}" "${npm_config_include:-}"
     sha256sum "$dir/$lock" "$dir/package.json" | cut -d' ' -f1
   } | sha256sum | cut -c1-32
 }
@@ -77,22 +80,30 @@ nm_store_install() {
   printf '%s/%s\n' "$app" "$key" >"$rel/.nm-store-key"
 }
 
-# nm_store_gc [apps root]: remove store entries that no kept release references.
+# nm_store_gc [apps root] [app]: remove store entries that no kept release references.
 # Releases live in <apps root>/<app>/<env>/<service>/releases/<sha>/ (default $HOME/apps).
+# With <app>, only that app's entries and releases are looked at: the deploy-time cleanup
+# never touches another project. Without it, every app's: node_runtime's scheduled job.
 nm_store_gc() {
-  local apps=${1:-$HOME/apps} root min_age used entry
+  local apps=${1:-$HOME/apps} app=${2:-} root scope depth min_age used entry
   root=$(nm_store_root)
   min_age=${NM_GC_MIN_AGE_MIN:-120}
-  [[ -d $root ]] || return 0
+  if [[ -n $app ]]; then
+    [[ $app != */* ]] || { echo "nm_store: bad app name '$app'" >&2; return 1; }
+    scope=$root/$app apps=$apps/$app depth=1
+  else
+    scope=$root depth=2
+  fi
+  [[ -d $scope ]] || return 0
   # find, not a glob: with no releases left an unmatched glob would fail the whole GC
-  used=$(find "$apps" -mindepth 6 -maxdepth 6 -path '*/releases/*' -name .nm-store-key -exec cat {} + 2>/dev/null | sort -u)
+  used=$(find "$apps" -mindepth $((depth + 4)) -maxdepth $((depth + 4)) -path '*/releases/*' -name .nm-store-key -exec cat {} + 2>/dev/null | sort -u)
   while IFS= read -r entry; do
     [[ -n $entry ]] || continue
     if ! grep -qxF "${entry#"$root"/}" <<<"$used"; then
       echo "nm_store: gc ${entry#"$root"/}"
       chmod -R u+w "$entry" && rm -rf "$entry"
     fi
-  done < <(find "$root" -mindepth 2 -maxdepth 2 -type d -mmin +"$min_age" ! -name '*.tmp.*')
+  done < <(find "$scope" -mindepth "$depth" -maxdepth "$depth" -type d -mmin +"$min_age" ! -name '*.tmp.*')
   # Temp dirs left by an interrupted install.
-  find "$root" -mindepth 2 -maxdepth 2 -type d -name '*.tmp.*' -mmin +"$min_age" -exec rm -rf {} +
+  find "$scope" -mindepth "$depth" -maxdepth "$depth" -type d -name '*.tmp.*' -mmin +"$min_age" -exec rm -rf {} +
 }

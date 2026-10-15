@@ -26,6 +26,9 @@ export NODE_ENV=production
 
 # 1. generate scripts & update scripts for remote
 log "Generating $DEPLOY_SERVICE deploy config"
+# .env.deploy holds the env file's secrets: removed however the deploy ends, so a failed
+# deploy never leaves it in the working tree
+trap 'rm -f "$SCRIPT_DIR/remote/current/deploy.config.json" "$SCRIPT_DIR/remote/current/.env.deploy"' EXIT
 generate_pm2_start_json $DEPLOY_SERVICE "deploy.config.json"
 cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
@@ -65,7 +68,8 @@ fi
 # 4. Build next
 log "Building $DEPLOY_SERVICE"
 npm run build
-npm prune --production
+# No `npm prune --production`: node_modules isn't synced (init_web.sh installs on the host),
+# and the prune rewrites package-lock.json, which the host installs from.
 
 ## Start of loop
 if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
@@ -89,6 +93,7 @@ do
     fi
 
     log "Deploying $DEPLOY_SERVICE_TYPE:$DEPLOY_SERVICE on $host ($host_type)"
+    refuse_live_release "$deployment_path"
 
     # 5. Make sure the remote directory structure is present
     log "Making sure following dir is present: $DEPLOYMENT_DIR "
@@ -131,6 +136,5 @@ log "##### Deployment Completed for $APP_ENV - $DEPLOY_SERVICE #####"
 # TODO: Push Deployment Success event
 
 # 12. Cleanup
-rm $SCRIPT_DIR/remote/current/deploy.config.json
-rm "$SCRIPT_DIR/remote/current/.env.deploy"
+# (the EXIT trap removes deploy.config.json and .env.deploy)
 #git checkout $SCRIPT_DIR/remote/current

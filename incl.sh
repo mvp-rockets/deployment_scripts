@@ -143,6 +143,18 @@ function set_deploy_metadata()
   "$SCRIPT_DIR/lib/dotenv" --file "$file" set HEALTH_URL="$(printf '%q' "${!var:-${HEALTH_URL:-}}")"
 }
 
+# Refuses to deploy over the running release. Releases are named by commit, so deploying
+# the live commit again (uncommitted changes on top of it, say) would rsync over the
+# release pm2 runs from. Commit, then deploy the new commit.
+# $1: the release path (deployment_path, relative to ROOT_DEPLOYMENT_DIR)
+function refuse_live_release()
+{
+  if exec_remote "test \"\$(readlink -f $ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE/current)\" = $ROOT_DEPLOYMENT_DIR$1"; then
+    error "$GIT_COMMIT is the live $DEPLOY_SERVICE release on ${SERVER_NAME:-$INSTANCE_ID}: commit the changes and deploy the new commit"
+    exit 1
+  fi
+}
+
 ## Sync directories where source directory is local and target directory is remote
 # sync source target additional args
 # It uses rsync, so all additional args are passed through to rsync

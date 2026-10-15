@@ -15,6 +15,9 @@ deployment_path="/$DEPLOY_SERVICE/releases/$GIT_COMMIT"
 log "$(basename $PROJECT_DIR) $APP_ENV $GIT_COMMIT $DEPLOY_SERVICE"
 
 
+# .env.deploy holds the env file's secrets: removed however the deploy ends, so a failed
+# deploy never leaves it in the working tree
+trap 'rm -f "$SCRIPT_DIR/remote/current/deploy.config.json" "$SCRIPT_DIR/remote/current/.env.deploy"' EXIT
 cp "$SCRIPT_DIR/env/.env.$APP_ENV" "/$SCRIPT_DIR/remote/current/.env.deploy" 
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set GIT_COMMIT="$GIT_COMMIT"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE_TYPE="$DEPLOY_SERVICE_TYPE"
@@ -64,6 +67,7 @@ do
     fi
 
     log "Deploying $DEPLOY_SERVICE_TYPE:$DEPLOY_SERVICE on $host ($host_type)"
+    refuse_live_release "$deployment_path"
 
     # 3. Make sure the remote directory structure is present
     log "Making sure following dir is present: $DEPLOYMENT_DIR "
@@ -95,6 +99,6 @@ do
 done
 ## End of loop
 
-rm "$SCRIPT_DIR/remote/current/.env.deploy"
+# (the EXIT trap removes .env.deploy)
 log "##### Deployment Completed for $APP_ENV - $DEPLOY_SERVICE #####"
 
