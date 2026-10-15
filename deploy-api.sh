@@ -29,6 +29,7 @@ $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPL
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set ROOT_DEPLOYMENT_DIR="$ROOT_DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOYMENT_DIR="$DEPLOYMENT_DIR"
 $SCRIPT_DIR/lib/dotenv --file "/$SCRIPT_DIR/remote/current/.env.deploy" set DEPLOY_SERVICE="$DEPLOY_SERVICE"
+set_deploy_metadata "/$SCRIPT_DIR/remote/current/.env.deploy"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -92,6 +93,10 @@ do
     sync "/scripts/remote/current/start_service.sh" "$deployment_path/"
     sync "/scripts/remote/current/.env.deploy" "$deployment_path/"
     sync "/scripts/remote/current/deploy.config.json" "$deployment_path/"
+    # the secret is checked against it before load-secrets (remote/common/secrets_manifest.sh)
+    if [[ -f "$SCRIPT_DIR/secrets-manifest.json" ]]; then
+        sync "/scripts/secrets-manifest.json" "$deployment_path/"
+    fi
 
     # sync files to the root_deployment_dir
     sync "/scripts/remote/common/*" "/$DEPLOY_SERVICE/"

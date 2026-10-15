@@ -90,6 +90,16 @@ Folder structure and their contents:
         └── current                  - Used by the test scripts
 ```
 
+### What a deploy does on the server
+
+- **node_modules from a store** (`remote/common/nm_store.sh`): `init_api.sh` and `init_web.sh` no longer run `npm ci` in every release. The install runs once per lockfile (key: `package-lock.json`/`pnpm-lock.yaml`, `package.json`, node version, install flags) into `~/apps/.nm-store/<project>/<key>/`, and each release gets a hard-link copy (seconds, almost no disk). Store files are read-only, so a tool that rewrites a file inside `node_modules` in place fails loudly instead of changing other releases. An app whose postinstall generates files from repo sources (e.g. Prisma) must not use the store. `deploy-web.sh` no longer rsyncs `node_modules`.
+- **Health gate** (`remote/current/start_service.sh`, `remote/common/health.sh`): after pm2 starts the release, `HEALTH_URL` must answer 2xx within `HEALTH_TIMEOUT` seconds (default 60). If it doesn't, `current` goes back to the previous release, pm2 reloads it, and the deploy fails. Set `HEALTH_URL_<SERVICE>` (e.g. `HEALTH_URL_API=http://127.0.0.1:4000/api/healthz`) or `HEALTH_URL` in `env/.env.<env>`; empty means no gate.
+- **Deploy events** (`remote/common/events.sh`): one JSON line per event in `/var/log/napses/deploy-events.jsonl` (`NAPSES_DEPLOY_EVENTS`): `deploy_start`, `deploy_end` (`result` success/failure, `duration_s`, `stage` on failure, `health`), `health_check`, `rollback`. Each carries app, env, service, host, sha, branch and trigger (`BITBUCKET_BUILD_NUMBER` in a pipeline, else the deployer's `git config user.email`; or set `DEPLOY_TRIGGER`). With `DORA_WEBHOOK_URL` set, each event is also POSTed there. A missing or unwritable log file only warns.
+- **Secrets manifest** (`remote/common/secrets_manifest.sh`): with `scripts/secrets-manifest.json` in the project (`{"services": {"api": {"required": [...], "optional": [...]}}}`), `init_api.sh` checks the app's secret before `load-secrets`: a missing required key fails the deploy; a key no service lists fails it too, except on the first checked deploy, which only warns. The secret is read with `aws secretsmanager get-secret-value` (`AWS_SM_SECRET_ID`, with the host's AWS profile and region), or with `SECRETS_FETCH_CMD`. No manifest: a warning, not checked.
+- **Cleanup** (`remote/common/clean_up_old_deployment.sh`, `release_prune.sh`): keeps the last two releases and never removes one that `deployment_history` still lists or `current` points at (a redeployed sha); removes hanging releases (failed deploys, never logged to `deployment_history`) older than `RELEASE_PRUNE_MIN_AGE_MIN` minutes (120); drops store entries no kept release uses. `release_prune.sh [--dry-run] --all [apps root]` also works on its own, e.g. from a timer.
+- **pm2 save**: `start_service.sh` compares the apps pm2 runs (pm2 modules such as pm2-logrotate excluded) with `~/.pm2/dump.pm2` and saves only when they differ.
+- **Static sites** (`static_service.sh`): no sudo. `/var/www/<project>-<env>-<service>` must exist and be writable by the deploy user (create it in the server setup), else the deploy fails with that message.
+
 ## 7. Testing
 
 See [Readme](test/readme.md)

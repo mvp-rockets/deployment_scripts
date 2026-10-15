@@ -113,6 +113,10 @@ function export_vars()
     export NODE_ENV=production
     #parent_dir="$(dirname -- "$(realpath -- "$file_or_dir_name")")"
     export GIT_COMMIT="$(env -i git rev-parse --short HEAD)"
+    # For the deploy events: the branch, and who or what started the deploy (the
+    # pipeline's build number, else the deployer's git email).
+    export GIT_BRANCH="${BITBUCKET_BRANCH:-$(env -i git rev-parse --abbrev-ref HEAD)}"
+    export DEPLOY_TRIGGER="${DEPLOY_TRIGGER:-${BITBUCKET_BUILD_NUMBER:-$(git config user.email || true)}}"
     export DEPLOYMENT_DIR="/home/$REMOTE_USER/apps/$PROJECT_NAME/$APP_ENV"
     export ROOT_DEPLOYMENT_DIR="/home/$REMOTE_USER/apps/$PROJECT_NAME/$APP_ENV"
 
@@ -122,6 +126,21 @@ function export_vars()
     else
         export KEYARG=
     fi
+}
+
+# Adds what the remote scripts' deploy events and health gate read to a .env.deploy file:
+# GIT_BRANCH, DEPLOY_TRIGGER and HEALTH_URL for $DEPLOY_SERVICE. HEALTH_URL comes from
+# HEALTH_URL_<SERVICE> in the env file (e.g. HEALTH_URL_API=http://127.0.0.1:4000/api/healthz),
+# else HEALTH_URL; empty means no health gate. Values are shell-quoted: the remote scripts
+# source the file.
+# $1: the .env.deploy file
+function set_deploy_metadata()
+{
+  local file=$1 var
+  var="HEALTH_URL_$(echo "$DEPLOY_SERVICE" | tr '[:lower:]-' '[:upper:]_')"
+  "$SCRIPT_DIR/lib/dotenv" --file "$file" set GIT_BRANCH="$(printf '%q' "$GIT_BRANCH")"
+  "$SCRIPT_DIR/lib/dotenv" --file "$file" set DEPLOY_TRIGGER="$(printf '%q' "$DEPLOY_TRIGGER")"
+  "$SCRIPT_DIR/lib/dotenv" --file "$file" set HEALTH_URL="$(printf '%q' "${!var:-${HEALTH_URL:-}}")"
 }
 
 ## Sync directories where source directory is local and target directory is remote
