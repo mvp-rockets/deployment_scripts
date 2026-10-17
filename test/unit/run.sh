@@ -18,7 +18,7 @@ else
   exit 1
 fi
 if command -v shellcheck >/dev/null; then
-  shellcheck -x secrets.sh remote/common/secrets_manifest.sh remote/current/init_api.sh remote/current/reload_secrets.sh
+  shellcheck -x secrets.sh remote/common/secrets_manifest.sh remote/common/pm2_node.sh remote/current/init_api.sh remote/current/start_service.sh remote/current/reload_secrets.sh
   echo "shellcheck: ok"
 else
   echo "test/unit/run.sh: shellcheck not installed: skipped" >&2

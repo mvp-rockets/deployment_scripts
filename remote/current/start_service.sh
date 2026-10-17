@@ -2,7 +2,8 @@
 # Runs in the new release directory (deploy-api.sh's step 6): switch `current`, start or
 # restart under pm2, then the health gate: if HEALTH_URL doesn't answer 2xx within
 # HEALTH_TIMEOUT seconds (default 60), `current` goes back to the previous release, pm2
-# reloads it, and the deploy fails. Every outcome is a deploy event.
+# reloads it, and the deploy fails. Every outcome is a deploy event. A cluster-mode app whose
+# .nvmrc isn't pm2's Node is refused first (common/pm2_node.sh, ADR 0021).
 # shellcheck source-path=SCRIPTDIR/../common
 set -Eeo pipefail
 
@@ -16,6 +17,14 @@ lib=${NAPSES_DEPLOY_LIB:-$ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE}
 . "$lib/events.sh"
 # shellcheck source=health.sh
 . "$lib/health.sh"
+# shellcheck source=pm2_node.sh
+. "$lib/pm2_node.sh"
+
+# again here for projects with their own init_api.sh; before `current` moves
+if ! pm2_cluster_node_check "$DEPLOYMENT_DIR/deploy.config.json" "$DEPLOYMENT_DIR/.nvmrc"; then
+  deploy_finished failure stage=preflight
+  exit 1
+fi
 
 SERVICE_DIR="$ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE"
 cd "$SERVICE_DIR"

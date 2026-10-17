@@ -14,6 +14,9 @@
 #   secrets.sh <env> reload                      the live release re-reads the secret, over the
 #                                                deploy's SSH (scripts/remote/current/reload_secrets.sh)
 #   secrets.sh <env> keys                        key names (and how they differ from the manifest)
+#   secrets.sh <env> manifest                    the service's manifest list set to the secret's
+#                                                key names (the secret is only read): a project
+#                                                whose secret predates its manifest
 #   secrets.sh <env> diff <other env>            key names in one environment only
 #
 # Options: --service <name> (default api), --yes (no confirmation), --profile <aws profile>.
@@ -115,13 +118,16 @@ manifest_list() {  # this service's keys, one per line
   manifest_json | jq -r --arg s "$SERVICE" '.[$s] // [] | .[]'
 }
 
-# manifest_change add|remove KEY...: the keys into or out of this service's list. The file is
-# rewritten in place (it keeps its mode) and only when its content changes.
+# manifest_change add|remove|set KEY...: the keys into or out of this service's list, or the list
+# replaced by them. The file is rewritten in place (it keeps its mode) and only when its content
+# changes.
 manifest_change() {
   local op=$1
   shift
   manifest_json | jq -S --indent 2 --arg s "$SERVICE" --arg op "$op" --args '
-    .[$s] = (if $op == "add" then ((.[$s] // []) + $ARGS.positional) else ((.[$s] // []) - $ARGS.positional) end | unique)' \
+    .[$s] = (if $op == "add" then ((.[$s] // []) + $ARGS.positional)
+             elif $op == "set" then $ARGS.positional
+             else ((.[$s] // []) - $ARGS.positional) end | unique)' \
     "$@" >"$TMP/manifest.json"
   if [[ -f $MANIFEST ]] && cmp -s "$TMP/manifest.json" "$MANIFEST"; then
     return 0
@@ -218,6 +224,19 @@ case $CMD in
     extra=$(comm -23 <(jq -r 'keys[]' "$TMP/cur.json") <(manifest_list | sort))
     [[ -z $missing ]] || echo "secrets: in the manifest, not in $ID (a deploy fails): $(paste -sd' ' <<<"$missing")" >&2
     [[ -z $extra ]] || echo "secrets: in $ID, not in the manifest: $(paste -sd' ' <<<"$extra")" >&2
+    ;;
+  manifest)
+    ((${#ARGS[@]} == 0)) || die "manifest takes no arguments"
+    ID=$(secret_id "$APP_ENV")
+    fetch "$ID" "$TMP/cur"
+    [[ $(jq length "$TMP/cur.json") -gt 0 ]] || die "$ID has no keys: push its values first"
+    added=$(comm -23 <(jq -r 'keys[]' "$TMP/cur.json") <(manifest_list | sort))
+    removed=$(comm -13 <(jq -r 'keys[]' "$TMP/cur.json") <(manifest_list | sort))
+    [[ -z $added ]] || echo "listed:   $(paste -sd' ' <<<"$added")"
+    [[ -z $removed ]] || echo "unlisted: $(paste -sd' ' <<<"$removed")"
+    mapfile -t names < <(jq -r 'keys[]' "$TMP/cur.json")
+    manifest_change set "${names[@]}"
+    [[ -n $added$removed ]] || echo "manifest: $SERVICE's list already matches $ID"
     ;;
   push)
     ((${#ARGS[@]} == 1)) || die "push takes one file"
