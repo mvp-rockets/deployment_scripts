@@ -83,6 +83,7 @@ One secret per project, environment and service, `<projectName>-<env>-<service>`
 ./secrets.sh <env> delete KEY...               # keys out of the secret and the manifest list
 ./secrets.sh <env> reload                      # the live release re-reads the secret, without a deploy
 ./secrets.sh <env> keys                        # key names, and how they differ from the manifest
+./secrets.sh <env> manifest                    # the service's manifest list set to the secret's key names (the secret only read): for a secret that predates its manifest
 ./secrets.sh <env> diff <other env>            # key names in one environment only
 options: --service <name> (default api), --yes (no prompt), --profile <aws profile>
 ```
@@ -122,10 +123,11 @@ Folder structure and their contents:
 - **Generated files** (`remote/current/.env.deploy`, a copy of the env file with its secrets, and `deploy.config.json`) are removed however the deploy ends, and git-ignored.
 - **The web build** runs `npm ci` from the committed lockfile and no `npm prune`, which rewrites `package-lock.json`: the host installs from the lockfile it is sent.
 - **pm2 save**: `start_service.sh` compares the apps pm2 runs (pm2 modules such as pm2-logrotate excluded) with `~/.pm2/dump.pm2` and saves only when they differ.
+- **pm2 cluster mode and `.nvmrc`** (`remote/common/pm2_node.sh`): pm2 cluster mode runs every worker on pm2's own Node, whatever the app's `.nvmrc` says. `init_api.sh` (before the install) and `start_service.sh` (before `current` moves) refuse a cluster-mode app whose `.nvmrc` names another version, naming both versions and the fixes (set `.nvmrc` to pm2's Node, or run the app in fork mode). An `.nvmrc` of `24` or `24.11` matches any 24.x or 24.11.x; an alias (`lts/*`) never does; no `.nvmrc` or no cluster-mode app: nothing checked.
 - **Static sites** (`static_service.sh`): no sudo. `/var/www/<project>-<env>-<service>` must exist and be writable by the deploy user (create it in the server setup), else the deploy fails with that message.
 
 ## 7. Testing
 
-`test/unit/run.sh`: unit tests that need no VM or AWS (pytest; the real scripts with `aws`, `ssh`, `rsync`, `pm2`, `npm` and `curl` stubbed), then shellcheck. `test/unit/test_secrets.py` covers `secrets.sh` (push, export, delete, keys, diff, the manifest, concurrent writes, no value on argv or in the output, `reload` through the real `incl.sh`); `test/unit/test_remote_secrets.py` covers `init_api.sh`'s secrets check and `reload_secrets.sh` (success, a missing key, a failed load or health gate restoring the previous values).
+`test/unit/run.sh`: unit tests that need no VM or AWS (pytest; the real scripts with `aws`, `ssh`, `rsync`, `pm2`, `npm` and `curl` stubbed), then shellcheck. `test/unit/test_secrets.py` covers `secrets.sh` (push, export, delete, keys, diff, the manifest, concurrent writes, no value on argv or in the output, `reload` through the real `incl.sh`); `test/unit/test_remote_secrets.py` covers `init_api.sh`'s secrets check and `reload_secrets.sh` (success, a missing key, a failed load or health gate restoring the previous values). `test/unit/test_remote_pm2_node.py` covers the cluster-mode `.nvmrc` check (exact, major and minor prefixes, a different version, an alias, fork mode, no `.nvmrc`; in `start_service.sh` before the switch; the running daemon's binary over PATH, a stale pid).
 
 The VM-based setup: see [Readme](test/readme.md)

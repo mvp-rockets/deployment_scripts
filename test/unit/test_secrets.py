@@ -127,6 +127,39 @@ def test_keys_lists_names_and_how_they_differ_from_the_manifest(proj):
     no_leak(proj, r, "old-pw")
 
 
+def test_manifest_from_the_secret_with_none_yet_only_reads_it(proj):
+    (proj["root"] / "scripts" / "secrets-manifest.json").unlink()
+    r = run(proj, "qa", "manifest")  # no terminal, no --yes: nothing is written to AWS
+    assert r.returncode == 0, r.stderr
+    assert manifest(proj) == {"api": ["DB_HOST", "DB_PASSWORD", "QUEUE_URL"]}
+    assert "listed:   DB_HOST DB_PASSWORD QUEUE_URL" in r.stdout
+    assert versions(proj) == 1
+    assert all(json.loads(line)[1] in ("get-secret-value", "describe-secret")
+               for line in proj["log"].read_text().splitlines())
+    no_leak(proj, r, "old-pw")
+
+
+def test_manifest_replaces_this_services_list_only(proj):
+    old = {"services": {"api": {"required": ["DB_HOST", "GONE"], "optional": ["SENTRY_DSN"]}, "sqs": {"required": ["Q"]}}}
+    (proj["root"] / "scripts" / "secrets-manifest.json").write_text(json.dumps(old))
+    r = run(proj, "qa", "manifest")
+    assert r.returncode == 0, r.stderr
+    assert manifest(proj) == {"api": ["DB_HOST", "DB_PASSWORD", "QUEUE_URL"], "sqs": ["Q"]}
+    assert "listed:   DB_PASSWORD QUEUE_URL" in r.stdout and "unlisted: GONE" in r.stdout
+
+
+def test_manifest_already_matching_changes_no_key(proj):
+    r = run(proj, "qa", "manifest")
+    assert r.returncode == 0, r.stderr
+    assert "already matches app-qa-api" in r.stdout and manifest(proj) == MANIFEST
+
+
+def test_manifest_of_an_empty_container_is_an_error(proj):
+    put_store(proj["store"], {}, empty=["app-qa-api"])
+    r = run(proj, "qa", "manifest")
+    assert r.returncode == 1 and "has no keys: push its values first" in r.stderr
+    assert manifest(proj) == MANIFEST
+
 def test_push_adds_and_updates_ignores_empty_values_and_lists_the_keys(proj):
     f = envfile(proj, "# a comment\n\nDB_PASSWORD=new-pw\nexport NEW_KEY='with spaces'\nEMPTY=\nALSO_EMPTY=\"\"\n")
     r = run(proj, "qa", "push", str(f), "--yes")
