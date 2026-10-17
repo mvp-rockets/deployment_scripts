@@ -31,22 +31,9 @@ fi
 
 nm_store_install "$DEPLOYMENT_DIR" "$PROJECT_NAME"
 
-check_secrets() {
-  local manifest=${SECRETS_MANIFEST:-$DEPLOYMENT_DIR/secrets-manifest.json} secret
-  if [[ ! -f $manifest ]]; then
-    echo "secrets manifest: none at $manifest (WARNING: not checked)" >&2
-    return 0
-  fi
-  secret=$(mktemp)
-  # shellcheck disable=SC2064  # expand now: the path is local
-  trap "rm -f '$secret'" RETURN
-  secrets_fetch "$secret"
-  secrets_manifest_check "$manifest" "$secret" "${DEPLOY_SERVICE##*/}" "$ROOT_DEPLOYMENT_DIR/.secrets-manifest-enforced"
-}
-
 echo "build env"
 if [[ -f "$DEPLOYMENT_DIR/tsconfig.json" ]]; then
-  check_secrets
+  secrets_check "${SECRETS_MANIFEST:-$DEPLOYMENT_DIR/secrets-manifest.json}" "${DEPLOY_SERVICE##*/}"
   npm run load-secrets
   echo "Running migration scripts"
   npm run migration:run --env="$APP_ENV"
