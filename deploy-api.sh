@@ -45,6 +45,11 @@ fi
 local_dir=$(jq -c -r --arg se "$DEPLOY_SERVICE" '.services[] | select(.name == $se) | if .location != null then .location else .name end' $PROJECT_DIR/services.json)
 cd "$PROJECT_DIR/$local_dir"
 
+# every npm script init_api.sh will run is in package.json, before the build and the first
+# sync: a missing seeder would otherwise fail on the host after the migrations had run
+source "$SCRIPT_DIR/remote/common/npm_scripts.sh"
+npm_scripts_check .
+
 rm -rf build
 rm -rf node_modules/ --force
 npm ci --include=dev

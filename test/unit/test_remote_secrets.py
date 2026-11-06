@@ -47,14 +47,20 @@ def env(tmp_path):
             "events": tmp_path / "events.jsonl", "secret": secret, "tmp": tmp_path}
 
 
-def make_release(env, sha, manifest=MANIFEST, health_url="http://127.0.0.1:4000/api/healthz"):
+TS_SCRIPTS = ["load-secrets", "migration:run", "migration:seed"]   # init_api.sh with tsconfig.json
+OLD_SCRIPTS = ["build:env", "db:migrate", "db:seed:all"]          # the older template
+
+
+def make_release(env, sha, manifest=MANIFEST, health_url="http://127.0.0.1:4000/api/healthz",
+                 scripts=TS_SCRIPTS, tsconfig=True, deploy_env=None):
     rel = env["svc"] / "releases" / sha
     rel.mkdir()
     for f in (REMOTE / "current").iterdir():
         shutil.copy(f, rel / f.name)
-    (rel / "package.json").write_text('{"name": "app"}')
+    (rel / "package.json").write_text(json.dumps({"name": "app", "scripts": {s: "true" for s in scripts}}))
     (rel / "package-lock.json").write_text('{"lockfileVersion": 3}')
-    (rel / "tsconfig.json").write_text("{}")
+    if tsconfig:
+        (rel / "tsconfig.json").write_text("{}")
     (rel / "deploy.config.json").write_text('{"apps": []}')
     if manifest is not None:
         (rel / "secrets-manifest.json").write_text(json.dumps(manifest))
@@ -63,6 +69,7 @@ def make_release(env, sha, manifest=MANIFEST, health_url="http://127.0.0.1:4000/
              "DEPLOYMENT_DIR": str(rel), "AWS_SM_SECRET_ID": "app-qa-api"}
     if health_url:
         lines["HEALTH_URL"] = health_url
+    lines.update(deploy_env or {})
     (rel / ".env.deploy").write_text("".join(f"{k}={v}\n" for k, v in lines.items()))
     return rel
 
