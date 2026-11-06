@@ -3,7 +3,7 @@
 # lockfile-keyed store instead of npm ci (common/nm_store.sh), deploy events
 # (common/events.sh), the secret checked against secrets-manifest.json before load-secrets
 # (common/secrets_manifest.sh), a cluster-mode app's .nvmrc checked against pm2's Node
-# (common/pm2_node.sh).
+# (common/pm2_node.sh), the npm scripts it runs checked in package.json (common/npm_scripts.sh).
 # shellcheck source-path=SCRIPTDIR/../common
 set -Eeo pipefail
 
@@ -21,10 +21,14 @@ lib=${NAPSES_DEPLOY_LIB:-$ROOT_DEPLOYMENT_DIR/$DEPLOY_SERVICE}
 . "$lib/secrets_manifest.sh"
 # shellcheck source=pm2_node.sh
 . "$lib/pm2_node.sh"
+# shellcheck source=npm_scripts.sh
+. "$lib/npm_scripts.sh"
 
 deploy_started
-# before nvm use (pm2's Node) and before the install and migrations
-if ! pm2_cluster_node_check "$DEPLOYMENT_DIR/deploy.config.json" "$DEPLOYMENT_DIR/.nvmrc"; then
+# before nvm use (pm2's Node) and before the install and migrations; npm_scripts_required
+# lists the npm runs below, branch by branch
+if ! pm2_cluster_node_check "$DEPLOYMENT_DIR/deploy.config.json" "$DEPLOYMENT_DIR/.nvmrc" \
+   || ! npm_scripts_check "$DEPLOYMENT_DIR"; then
   deploy_finished failure stage=preflight
   exit 1
 fi
