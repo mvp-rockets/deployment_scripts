@@ -126,6 +126,35 @@ function export_vars()
     else
         export KEYARG=
     fi
+
+    # pm2 instances of an api service in cluster mode (build_pm2_json); unset is 2
+    if [[ -n ${PM2_API_INSTANCES:-} && ! $PM2_API_INSTANCES =~ ^[1-9][0-9]*$ ]]; then
+        error "PM2_API_INSTANCES in env/.env.$APP_ENV must be a whole number of 1 or more: $PM2_API_INSTANCES"
+        exit 1
+    fi
+}
+
+# Adds version.txt's build metadata to a .env.deploy file; static_service.sh writes
+# dist/version.txt from it on the host (a file in dist could be dropped by sync's .gitignore
+# filter): APP_VERSION (package.json's version), GIT_COMMIT_FULL, GIT_TAG (the tag on HEAD, else
+# none), BUILD_ID (bitbucket-<build number> in a pipeline, else deploy-<UTC time>), BUILD_TIME
+# and BUILD_NODE_VERSION (the node that built it). Run in the service's directory, after the
+# build. Values are shell-quoted: the remote scripts source the file.
+# $1: the .env.deploy file
+function set_version_metadata()
+{
+  local file=$1 version build_id kv
+  version=$(jq -r '.version // "unknown"' package.json 2>/dev/null || echo unknown)
+  build_id="deploy-$(date -u +%Y%m%dT%H%M%SZ)"
+  [[ -n ${BITBUCKET_BUILD_NUMBER:-} ]] && build_id="bitbucket-$BITBUCKET_BUILD_NUMBER"
+  for kv in "APP_VERSION=$version" \
+            "GIT_COMMIT_FULL=$(env -i git rev-parse HEAD)" \
+            "GIT_TAG=$(env -i git describe --tags --exact-match 2>/dev/null || echo none)" \
+            "BUILD_ID=$build_id" \
+            "BUILD_TIME=$(date -u +%FT%TZ)" \
+            "BUILD_NODE_VERSION=$(node -v 2>/dev/null || echo unknown)"; do
+    "$SCRIPT_DIR/lib/dotenv" --file "$file" set "${kv%%=*}=$(printf '%q' "${kv#*=}")"
+  done
 }
 
 # Adds what the remote scripts' deploy events and health gate read to a .env.deploy file:
@@ -369,7 +398,7 @@ EOM
 {
   "script": "$exec_cmd",
   "exec_mode" : "cluster",
-  "instances" : 2,
+  "instances" : ${PM2_API_INSTANCES:-2},
   "combine_logs": true,
   "node_args": [
      "--max_old_space_size=1048"

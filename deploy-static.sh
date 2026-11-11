@@ -44,6 +44,8 @@ npm ci --include=dev
 log "Building $DEPLOY_SERVICE"
 npm run build --env=$APP_ENV
 npm prune --production
+# version.txt's metadata (static_service.sh writes dist/version.txt on the host)
+set_version_metadata "/$SCRIPT_DIR/remote/current/.env.deploy"
 
 ## Start of loop
 if [[ -n $AWS_EC2_TARGET_GROUP_ARN ]]; then
